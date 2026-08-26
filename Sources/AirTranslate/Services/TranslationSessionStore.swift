@@ -1860,6 +1860,25 @@ final class TranslationSessionStore {
                 )
             }
         }
+        geminiLiveTranslator.onSessionReconnectRecommended = {
+            [weak self, weak geminiLiveTranslator] resumptionHandle in
+            Task { @MainActor in
+                guard let self,
+                      let geminiLiveTranslator,
+                      geminiLiveTranslator === self.geminiLiveTranslator,
+                      self.pipelineLifecycle.acceptsSample(generation: generation),
+                      self.currentStartConfiguration() == configuration
+                else {
+                    return
+                }
+                self.scheduleGeminiSessionReconnect(
+                    service: geminiLiveTranslator,
+                    configuration: configuration,
+                    generation: generation,
+                    resumptionHandle: resumptionHandle
+                )
+            }
+        }
         activeCaptionerGeneration = generation
 
         if configuration.isTranscribeOnlyMode, configuration.openAITranscriptionModel.isEnabled {
@@ -1961,6 +1980,7 @@ final class TranslationSessionStore {
         activeCaptionerGeneration = nil
         openAITranscriber.onAudioTransportDegraded = nil
         geminiLiveTranslator.onAudioTransportDegraded = nil
+        geminiLiveTranslator.onSessionReconnectRecommended = nil
         transcriber.delegate = nil
         openAITranscriber.delegate = nil
         geminiLiveTranslator.delegate = nil
@@ -1991,9 +2011,11 @@ final class TranslationSessionStore {
                 }
 
                 do {
+                    let resumptionHandle = service.latestSessionResumptionHandle
                     try await service.start(
                         targetLanguage: configuration.targetLanguage,
-                        model: configuration.geminiTranslationModel
+                        model: configuration.geminiTranslationModel,
+                        resumptionHandle: resumptionHandle
                     )
                     service.setPaused(self.isPaused)
                 } catch is CancellationError {
@@ -2002,6 +2024,44 @@ final class TranslationSessionStore {
                     self.handleFatalPipelineError(error, generation: generation)
                     return
                 }
+            }
+        }
+    }
+
+    private func scheduleGeminiSessionReconnect(
+        service: GeminiLiveTranslationService,
+        configuration: StartConfiguration,
+        generation: UInt64,
+        resumptionHandle: String?
+    ) {
+        geminiSessionRefreshTask?.cancel()
+        geminiSessionRefreshTask = Task { @MainActor [weak self, weak service] in
+            guard !Task.isCancelled,
+                  let self,
+                  let service,
+                  service === self.geminiLiveTranslator,
+                  self.pipelineLifecycle.acceptsSample(generation: generation),
+                  self.currentStartConfiguration() == configuration
+            else {
+                return
+            }
+
+            do {
+                try await service.start(
+                    targetLanguage: configuration.targetLanguage,
+                    model: configuration.geminiTranslationModel,
+                    resumptionHandle: resumptionHandle
+                )
+                service.setPaused(self.isPaused)
+                self.scheduleGeminiSessionRefresh(
+                    service: service,
+                    configuration: configuration,
+                    generation: generation
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                self.handleFatalPipelineError(error, generation: generation)
             }
         }
     }

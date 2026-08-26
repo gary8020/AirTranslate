@@ -112,7 +112,7 @@ struct SidebarView: View {
                     title: AppText.localized(english: "Output", korean: "출력", japanese: "出力", chineseSimplified: "输出"),
                     systemImage: "viewfinder"
                 ) {
-                    if session.isUsingProviderTranscriptionMode {
+                    if session.isTranscribeOnlyMode {
                         Text(sourceOnlyOutputTitle)
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(.secondary)
@@ -135,7 +135,7 @@ struct SidebarView: View {
                     }
                 }
 
-                if !session.isUsingProviderTranscriptionMode {
+                if !session.isTranscribeOnlyMode {
                     SidebarVoiceOutputToggle(
                         isOn: dubbingEnabledBinding,
                         isDisabled: isSessionConfigurationLocked
@@ -145,7 +145,7 @@ struct SidebarView: View {
                     .padding(.bottom, session.isDubbingEnabled ? 8 : 13)
                 }
 
-                if !session.isUsingProviderTranscriptionMode, session.isDubbingEnabled {
+                if !session.isTranscribeOnlyMode, session.isDubbingEnabled {
                     SidebarVolumeControls(
                         volume: translatedVoiceVolumeBinding,
                         isDisabled: isSessionConfigurationLocked

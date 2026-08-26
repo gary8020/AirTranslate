@@ -220,14 +220,13 @@ struct SettingsView: View {
 
             SettingsValueRow(
                 title: AppText.autoDetectInput,
-                detail: SettingsCopy.autoDetectDetail,
+                detail: session.isUsingGeminiTranscriptionMode
+                    ? SettingsCopy.geminiAutoDetectDetail
+                    : SettingsCopy.autoDetectDetail,
                 systemImage: "sparkles",
-                value: AppText.localized(
-                    english: "Coming soon",
-                    korean: "지원 예정",
-                    japanese: "近日対応",
-                    chineseSimplified: "即将支持"
-                )
+                value: session.isUsingGeminiTranscriptionMode
+                    ? SettingsCopy.enabled
+                    : SettingsCopy.comingSoon
             )
         }
     }
@@ -380,12 +379,10 @@ struct SettingsView: View {
                 SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "pause.circle")
             }
 
-            if session.isUsingProviderTranscriptionMode {
+            if session.isTranscribeOnlyMode {
                 SettingsValueRow(
                     title: AppText.outputMode,
-                    detail: session.isUsingGeminiTranscriptionMode
-                        ? SettingsCopy.geminiTranscribeSourceOnlyDetail
-                        : AppText.gptTranscriptionModeDescription,
+                    detail: transcribeOnlyOutputDetail,
                     systemImage: "rectangle.split.2x1",
                     value: SettingsCopy.originalOnly
                 )
@@ -411,7 +408,7 @@ struct SettingsView: View {
                 SettingsNoticeRow(text: SettingsCopy.realtimeTranslationOutputOnly, systemImage: "waveform")
             }
 
-            if !session.isUsingProviderTranscriptionMode {
+            if !session.isTranscribeOnlyMode {
                 SettingsToggleRow(
                     title: AppText.voiceOutput,
                     detail: SettingsCopy.dubbingDetail,
@@ -436,6 +433,16 @@ struct SettingsView: View {
                 .disabled(isSessionConfigurationLocked || !session.isDubbingEnabled)
             }
         }
+    }
+
+    private var transcribeOnlyOutputDetail: String {
+        if session.isUsingGeminiTranscriptionMode {
+            return SettingsCopy.geminiTranscribeSourceOnlyDetail
+        }
+        if session.isUsingGPTTranscriptionMode {
+            return AppText.gptTranscriptionModeDescription
+        }
+        return SettingsCopy.appleTranscribeSourceOnlyDetail
     }
 
     private var transcriptSettings: some View {
@@ -1214,6 +1221,24 @@ private enum SettingsCopy {
         english: "Temporarily unavailable while automatic detection is improved.",
         korean: "자동 감지 개선 중이라 잠시 비활성화되어 있습니다."
     )
+    static let geminiAutoDetectDetail = AppText.localized(
+        english: "Gemini detects supported spoken languages automatically, including language changes within a session.",
+        korean: "Gemini가 지원하는 음성 언어와 세션 중 언어 전환을 자동으로 감지합니다.",
+        japanese: "Geminiが対応する音声言語とセッション中の言語切り替えを自動検出します。",
+        chineseSimplified: "Gemini 会自动检测支持的口语及会话中的语言切换。"
+    )
+    static let enabled = AppText.localized(
+        english: "On",
+        korean: "켜짐",
+        japanese: "オン",
+        chineseSimplified: "已开启"
+    )
+    static let comingSoon = AppText.localized(
+        english: "Coming soon",
+        korean: "지원 예정",
+        japanese: "近日対応",
+        chineseSimplified: "即将支持"
+    )
     static let captureRunningDisabledReason = AppText.localized(
         english: "Stop capture before changing this setting.",
         korean: "이 설정을 바꾸려면 먼저 캡처를 중지하세요."
@@ -1291,6 +1316,12 @@ private enum SettingsCopy {
         korean: "Gemini가 말하는 언어를 자동 감지하고 원문 자막만 표시합니다.",
         japanese: "Geminiが話し言葉を自動検出し、原文字幕のみを表示します。",
         chineseSimplified: "Gemini 会自动检测口语，并仅显示原文字幕。"
+    )
+    static let appleTranscribeSourceOnlyDetail = AppText.localized(
+        english: "Apple Speech shows original captions only in Transcribe mode.",
+        korean: "Apple Speech 전사 모드에서는 원문 자막만 표시합니다.",
+        japanese: "Apple Speechの文字起こしモードでは原文字幕のみを表示します。",
+        chineseSimplified: "Apple Speech 转写模式仅显示原文字幕。"
     )
     static let audioInputDetail = AppText.localized(
         english: "Mac audio captures system playback. Microphone captures the selected input device.",

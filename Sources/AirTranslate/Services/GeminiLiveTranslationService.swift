@@ -26,7 +26,7 @@ protocol GeminiLiveTranslationServiceDelegate: AnyObject {
 final class GeminiLiveTranslationService: @unchecked Sendable {
     private static let inputAudioSampleRate = 16_000
     private static let outputAudioSampleRate = 24_000.0
-    private static let maxAudioChunkMilliseconds = 100
+    private static let maxAudioChunkMilliseconds = 40
     private static let bytesPerPCM16Sample = 2
     private static let maxPCM16AudioChunkByteCount = inputAudioSampleRate
         * bytesPerPCM16Sample
@@ -63,6 +63,18 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
             stateLock.unlock()
         }
     }
+    /// Called when Gemini announces that the current socket will close soon.
+    /// The callback receives the newest resumable session handle, when available.
+    var onSessionReconnectRecommended: (@Sendable (String?) -> Void)? {
+        get {
+            withStateLock { sessionReconnectRecommendationHandler }
+        }
+        set {
+            withStateLock {
+                sessionReconnectRecommendationHandler = newValue
+            }
+        }
+    }
 
     private let stateLock = NSLock()
     private let conversionLock = NSLock()
@@ -80,10 +92,16 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
     private var lastAudioDropPhase = RealtimeAudioDropPhase.sendWindow
     private var audioTransportDegradationHandler:
         (@Sendable (RealtimeAudioTransportDegradation) -> Void)?
+    private var sessionReconnectRecommendationHandler: (@Sendable (String?) -> Void)?
+    private var sessionResumptionHandle: String?
     private var preSetupAudioChunks: [String] = []
     private var preSetupAudioByteCount = 0
 
-    func start(targetLanguage: LanguageOption, model: GeminiTranslationModel) async throws {
+    func start(
+        targetLanguage: LanguageOption,
+        model: GeminiTranslationModel,
+        resumptionHandle: String? = nil
+    ) async throws {
         stop()
 
         guard model.isEnabled else { return }
@@ -173,6 +191,7 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
         try await sendSetupMessage(
             model: model,
             targetLanguage: targetLanguage,
+            resumptionHandle: resumptionHandle,
             connectionGeneration: generation
         )
         try await waitForSetupComplete(connectionGeneration: generation)
@@ -322,6 +341,7 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
         droppedAudioChunkCount = 0
         droppedAudioByteCount = 0
         lastAudioDropPhase = .sendWindow
+        sessionResumptionHandle = nil
         preSetupAudioChunks = []
         preSetupAudioByteCount = 0
         stateLock.unlock()
@@ -333,9 +353,14 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
     private func sendSetupMessage(
         model: GeminiTranslationModel,
         targetLanguage: LanguageOption,
+        resumptionHandle: String?,
         connectionGeneration: UInt64
     ) async throws {
-        let data = try Self.encodedSetupMessage(model: model, targetLanguage: targetLanguage)
+        let data = try Self.encodedSetupMessage(
+            model: model,
+            targetLanguage: targetLanguage,
+            resumptionHandle: resumptionHandle
+        )
         guard let text = String(data: data, encoding: .utf8) else {
             throw GeminiLiveTranslationError.invalidResponse
         }
@@ -344,7 +369,8 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
 
     nonisolated static func encodedSetupMessage(
         model: GeminiTranslationModel,
-        targetLanguage: LanguageOption
+        targetLanguage: LanguageOption,
+        resumptionHandle: String? = nil
     ) throws -> Data {
         let isTranscription = model.isTranscription
         let event = GeminiLiveSetupMessage(
@@ -373,7 +399,14 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
                     languageCodes: isTranscription ? [] : nil,
                     mode: isTranscription ? "SMART" : nil
                 ),
-                outputAudioTranscription: isTranscription ? nil : GeminiLiveEmptyObject()
+                outputAudioTranscription: isTranscription ? nil : GeminiLiveEmptyObject(),
+                sessionResumption: GeminiLiveSessionResumptionConfig(
+                    handle: resumptionHandle
+                ),
+                contextWindowCompression: GeminiLiveContextWindowCompressionConfig(
+                    triggerTokens: 25_000,
+                    slidingWindow: GeminiLiveSlidingWindow(targetTokens: 8_000)
+                )
             )
         )
         return try JSONEncoder().encode(event)
@@ -601,6 +634,28 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
             return
         }
 
+        if let update = event.sessionResumptionUpdate {
+            withStateLock {
+                if update.resumable == true,
+                   let newHandle = update.newHandle,
+                   !newHandle.isEmpty {
+                    sessionResumptionHandle = newHandle
+                } else if update.resumable == false {
+                    sessionResumptionHandle = nil
+                }
+            }
+        }
+
+        if event.goAway != nil {
+            let reconnectState = withStateLock {
+                (
+                    handler: sessionReconnectRecommendationHandler,
+                    handle: sessionResumptionHandle
+                )
+            }
+            reconnectState.handler?(reconnectState.handle)
+        }
+
         if event.setupComplete != nil {
             markSetupComplete(connectionGeneration: connectionGeneration)
             return
@@ -625,12 +680,13 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
         }
         if let inputTranscript = content.inputTranscription?.text,
            !inputTranscript.isEmpty {
+            let isFinal = content.inputTranscription?.finished ?? true
             notifyDelegate(connectionGeneration: connectionGeneration) {
                 $0.geminiLiveTranslationService(
                     self,
                     didReceiveInputTranscript: inputTranscript,
                     languageCode: content.inputTranscription?.languageCode,
-                    isFinal: true
+                    isFinal: isFinal
                 )
             }
         }
@@ -794,6 +850,10 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
 
     var currentConnectionGeneration: UInt64 {
         withStateLock { connectionGeneration }
+    }
+
+    var latestSessionResumptionHandle: String? {
+        withStateLock { sessionResumptionHandle }
     }
 
     var pendingAudioSendSlotCount: Int {
@@ -969,6 +1029,21 @@ private struct GeminiLiveSetup: Encodable {
     let realtimeInputConfig: GeminiLiveRealtimeInputConfig?
     let inputAudioTranscription: GeminiLiveAudioTranscriptionConfig
     let outputAudioTranscription: GeminiLiveEmptyObject?
+    let sessionResumption: GeminiLiveSessionResumptionConfig
+    let contextWindowCompression: GeminiLiveContextWindowCompressionConfig
+}
+
+private struct GeminiLiveSessionResumptionConfig: Encodable {
+    let handle: String?
+}
+
+private struct GeminiLiveContextWindowCompressionConfig: Encodable {
+    let triggerTokens: Int
+    let slidingWindow: GeminiLiveSlidingWindow
+}
+
+private struct GeminiLiveSlidingWindow: Encodable {
+    let targetTokens: Int
 }
 
 private struct GeminiLiveRealtimeInputConfig: Encodable {
@@ -1015,7 +1090,18 @@ private struct GeminiLiveAudioBlob: Encodable {
 private struct GeminiLiveServerMessage: Decodable {
     let setupComplete: GeminiLiveSetupComplete?
     let serverContent: GeminiLiveServerContent?
+    let goAway: GeminiLiveGoAway?
+    let sessionResumptionUpdate: GeminiLiveSessionResumptionUpdate?
     let error: GeminiLiveErrorBody?
+}
+
+private struct GeminiLiveGoAway: Decodable {
+    let timeLeft: String?
+}
+
+private struct GeminiLiveSessionResumptionUpdate: Decodable {
+    let newHandle: String?
+    let resumable: Bool?
 }
 
 private struct GeminiLiveSetupComplete: Decodable {}
@@ -1031,6 +1117,7 @@ private struct GeminiLiveServerContent: Decodable {
 private struct GeminiLiveTranscript: Decodable {
     let text: String?
     let languageCode: String?
+    let finished: Bool?
 }
 
 private struct GeminiLiveModelTurn: Decodable {

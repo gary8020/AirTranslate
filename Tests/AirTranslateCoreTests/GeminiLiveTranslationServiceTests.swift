@@ -102,6 +102,27 @@ struct GeminiLiveTranslationServiceTests {
         #expect(inputTranscription["languageCodes"] as? [String] == [])
         #expect(inputTranscription["mode"] as? String == "SMART")
         #expect(setup["outputAudioTranscription"] == nil)
+        let sessionResumption = try #require(setup["sessionResumption"] as? [String: Any])
+        #expect(sessionResumption["handle"] == nil)
+        let compression = try #require(setup["contextWindowCompression"] as? [String: Any])
+        #expect(compression["triggerTokens"] as? Int == 25_000)
+        let slidingWindow = try #require(compression["slidingWindow"] as? [String: Any])
+        #expect(slidingWindow["targetTokens"] as? Int == 8_000)
+    }
+
+    @Test
+    func reconnectSetupCarriesTheNewestSessionHandle() throws {
+        let data = try GeminiLiveTranslationService.encodedSetupMessage(
+            model: .gemini35TranscribeLive,
+            targetLanguage: .korean,
+            resumptionHandle: "resume-token"
+        )
+
+        let root = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let setup = try #require(root["setup"] as? [String: Any])
+        let sessionResumption = try #require(setup["sessionResumption"] as? [String: Any])
+
+        #expect(sessionResumption["handle"] as? String == "resume-token")
     }
 
     @Test
@@ -117,6 +138,30 @@ struct GeminiLiveTranslationServiceTests {
         service.handleEventText(#"{"serverContent":{"inputTranscription":{"text":"hello","languageCode":"en"}}}"#)
         #expect(delegate.inputTranscript == "hello")
         #expect(delegate.inputTranscriptIsFinal)
+
+        service.handleEventText(#"{"serverContent":{"inputTranscription":{"text":"hello wor","languageCode":"en","finished":false}}}"#)
+        #expect(delegate.inputTranscript == "hello wor")
+        #expect(!delegate.inputTranscriptIsFinal)
+
+        service.handleEventText(#"{"serverContent":{"inputTranscription":{"text":"hello world","languageCode":"en","finished":true}}}"#)
+        #expect(delegate.inputTranscript == "hello world")
+        #expect(delegate.inputTranscriptIsFinal)
+    }
+
+    @Test
+    func goAwayRecommendsReconnectWithLatestResumableHandle() {
+        let service = GeminiLiveTranslationService()
+        let recorder = GeminiReconnectRecommendationRecorder()
+        service.onSessionReconnectRecommended = { recorder.record($0) }
+
+        service.handleEventText(
+            #"{"sessionResumptionUpdate":{"newHandle":"latest-token","resumable":true}}"#
+        )
+        #expect(service.latestSessionResumptionHandle == "latest-token")
+
+        service.handleEventText(#"{"goAway":{"timeLeft":"10s"}}"#)
+
+        #expect(recorder.handles == ["latest-token"])
     }
 
     @Test
@@ -196,7 +241,9 @@ struct GeminiLiveTranslationServiceTests {
             second.base64EncodedString()
         ])
 
-        #expect(chunks.count == 3)
+        #expect(chunks.count == 7)
+        let firstChunk = chunks.isEmpty ? nil : Data(base64Encoded: chunks[0])
+        #expect(firstChunk?.count == 1_280)
         let reassembled = chunks.compactMap { Data(base64Encoded: $0) }.reduce(Data(), +)
         #expect(reassembled == first + second)
     }
@@ -351,6 +398,17 @@ struct GeminiLiveTranslationServiceTests {
             #expect(nsError.domain == NSPOSIXErrorDomain)
             #expect(nsError.code == Int(ECONNREFUSED))
         }
+    }
+}
+
+private final class GeminiReconnectRecommendationRecorder: @unchecked Sendable {
+    private let lock = NSLock()
+    private(set) var handles: [String?] = []
+
+    func record(_ handle: String?) {
+        lock.lock()
+        handles.append(handle)
+        lock.unlock()
     }
 }
 
