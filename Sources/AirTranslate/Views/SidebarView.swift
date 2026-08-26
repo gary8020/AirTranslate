@@ -67,7 +67,9 @@ struct SidebarView: View {
                 ) {
                 SidebarLanguageRouteControl(
                     title: session.languageSummary,
-                    isAutoSourceEnabled: session.isAppleSourceAutoDetectionEnabled || usesOpenAIAutoLanguageFlow,
+                    isAutoSourceEnabled: session.isAppleSourceAutoDetectionEnabled
+                        || usesOpenAIAutoLanguageFlow
+                        || session.isUsingGeminiTranscriptionMode,
                     sourceSelection: quickSourceLanguageBinding,
                     targetSelection: quickTargetLanguageBinding,
                     isTranscribeOnlyMode: session.isTranscribeOnlyMode,
@@ -110,8 +112,8 @@ struct SidebarView: View {
                     title: AppText.localized(english: "Output", korean: "출력", japanese: "出力", chineseSimplified: "输出"),
                     systemImage: "viewfinder"
                 ) {
-                    if session.isUsingGPTTranscriptionMode {
-                        Text(AppText.gptTranscriptionSourceOnly)
+                    if session.isUsingProviderTranscriptionMode {
+                        Text(sourceOnlyOutputTitle)
                             .font(.callout.weight(.semibold))
                             .foregroundStyle(.secondary)
                     } else if usesAPIModeOutputControl {
@@ -133,7 +135,7 @@ struct SidebarView: View {
                     }
                 }
 
-                if !session.isUsingGPTTranscriptionMode {
+                if !session.isUsingProviderTranscriptionMode {
                     SidebarVoiceOutputToggle(
                         isOn: dubbingEnabledBinding,
                         isDisabled: isSessionConfigurationLocked
@@ -143,7 +145,7 @@ struct SidebarView: View {
                     .padding(.bottom, session.isDubbingEnabled ? 8 : 13)
                 }
 
-                if !session.isUsingGPTTranscriptionMode, session.isDubbingEnabled {
+                if !session.isUsingProviderTranscriptionMode, session.isDubbingEnabled {
                     SidebarVolumeControls(
                         volume: translatedVoiceVolumeBinding,
                         isDisabled: isSessionConfigurationLocked
@@ -297,6 +299,17 @@ struct SidebarView: View {
         ProcessingEngine.current(for: session) != .apple
     }
 
+    private var sourceOnlyOutputTitle: String {
+        session.isUsingGeminiTranscriptionMode
+            ? AppText.localized(
+                english: "Original only",
+                korean: "원문만",
+                japanese: "原文のみ",
+                chineseSimplified: "仅原文"
+            )
+            : AppText.gptTranscriptionSourceOnly
+    }
+
     private var shouldShowAPIKeyCard: Bool {
         switch ProcessingEngine.current(for: session) {
         case .gpt, .gptTranscription:
@@ -386,7 +399,7 @@ private enum ProcessingEngine: String, CaseIterable, Identifiable {
         if session.openAITranscriptionModel.isEnabled || session.openAITranslationModel.isEnabled {
             return .gpt
         }
-        if session.isUsingGeminiTranslation {
+        if session.isUsingGemini {
             return .gemini
         }
         return .apple
@@ -512,27 +525,40 @@ private struct QuickSettingRow<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        HStack(spacing: 8) {
-            Label {
-                Text(title)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-            } icon: {
-                Image(systemName: systemImage)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .frame(width: AirTranslateDesign.iconRegular, height: AirTranslateDesign.iconRegular)
-            }
-            .labelStyle(.titleAndIcon)
-            .frame(width: 72, alignment: .leading)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                rowLabel
+                    .frame(minWidth: 72, alignment: .leading)
 
-            content
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                content
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(minWidth: 220)
+
+            VStack(alignment: .leading, spacing: 8) {
+                rowLabel
+                content
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
+    }
+
+    private var rowLabel: some View {
+        Label {
+            Text(title)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.primary)
+                .lineLimit(2)
+        } icon: {
+            Image(systemName: systemImage)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .frame(width: AirTranslateDesign.iconRegular, height: AirTranslateDesign.iconRegular)
+        }
+        .labelStyle(.titleAndIcon)
     }
 }
 
@@ -556,36 +582,53 @@ private struct SidebarLanguageRouteControl: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Menu {
-                if !isAutoSourceEnabled {
-                    Picker(AppText.from, selection: $sourceSelection) {
-                        ForEach(LanguageOption.supported) { language in
-                            Text(language.localizedTitle).tag(language)
-                        }
-                    }
-                }
-
-                if !isTranscribeOnlyMode {
-                    Picker(AppText.to, selection: $targetSelection) {
-                        ForEach(targetLanguageOptions) { language in
-                            Text(language.localizedTitle).tag(language)
-                        }
-                    }
-                }
-            } label: {
+            if isAutoSourceEnabled && isTranscribeOnlyMode {
                 Text(title)
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.72)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                    .lineLimit(2)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .accessibilityLabel(AppText.from)
+                    .accessibilityValue(title)
+                    .accessibilityHint(
+                        AppText.localized(
+                            english: "Gemini detects the spoken language during capture.",
+                            korean: "Gemini가 캡처 중 말하는 언어를 자동 감지합니다.",
+                            japanese: "Geminiがキャプチャ中の話し言葉を自動検出します。",
+                            chineseSimplified: "Gemini 会在采集过程中自动检测口语。"
+                        )
+                    )
+            } else {
+                Menu {
+                    if !isAutoSourceEnabled {
+                        Picker(AppText.from, selection: $sourceSelection) {
+                            ForEach(LanguageOption.supported) { language in
+                                Text(language.localizedTitle).tag(language)
+                            }
+                        }
+                    }
+
+                    if !isTranscribeOnlyMode {
+                        Picker(AppText.to, selection: $targetSelection) {
+                            ForEach(targetLanguageOptions) { language in
+                                Text(language.localizedTitle).tag(language)
+                            }
+                        }
+                    }
+                } label: {
+                    Text(title)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+                .menuIndicator(.hidden)
+                .buttonStyle(.plain)
+                .disabled(isDisabled)
+                .help(title)
+                .accessibilityLabel(languageRouteAccessibilityLabel)
+                .accessibilityValue(title)
             }
-            .menuIndicator(.hidden)
-            .buttonStyle(.plain)
-            .disabled(isDisabled)
-            .help(title)
-            .accessibilityLabel(languageRouteAccessibilityLabel)
-            .accessibilityValue(title)
 
             if !isTranscribeOnlyMode {
                 Button {

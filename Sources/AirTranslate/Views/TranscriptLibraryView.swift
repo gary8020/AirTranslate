@@ -19,14 +19,20 @@ struct TranscriptLibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-                .padding(14)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 14)
 
             Divider()
 
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(width: 820, height: 520)
+        .frame(
+            minWidth: AirTranslateDesign.libraryMinimumWidth,
+            idealWidth: AirTranslateDesign.libraryIdealWidth,
+            minHeight: AirTranslateDesign.libraryMinimumHeight,
+            idealHeight: AirTranslateDesign.libraryIdealHeight
+        )
         .confirmationDialog(
             AppText.deleteSavedTranscriptConfirmation,
             isPresented: $isDeleteSelectedConfirmationPresented
@@ -54,33 +60,72 @@ struct TranscriptLibraryView: View {
     }
 
     private var header: some View {
-        HStack(spacing: 9) {
-            Image(systemName: "tray.full")
-                .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 22, height: 22)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 9) {
+                Image(systemName: "tray.full")
+                    .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
+                    .foregroundStyle(Color.accentColor)
+                    .frame(width: 22, height: 22)
 
-            VStack(alignment: .leading, spacing: 3) {
-                Text(AppText.savedTranscripts)
-                    .font(.title3.weight(.semibold))
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(AppText.savedTranscripts)
+                        .font(.title3.weight(.semibold))
 
-                Text(AppText.autoSaveDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                    Text(AppText.autoSaveDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+
+                Spacer(minLength: 12)
+
+                Button(AppText.close) {
+                    dismiss()
+                }
+                .keyboardShortcut(.cancelAction)
             }
 
-            Spacer(minLength: 16)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 9) {
+                    contentModeControl
+                    Spacer(minLength: 12)
+                    libraryActions
+                }
+                .frame(minWidth: 700)
 
-            Picker(AppText.savedTranscriptContent, selection: $session.savedTranscriptContentMode) {
-                ForEach(SavedTranscriptContentMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
+                VStack(alignment: .leading, spacing: 10) {
+                    contentModeControl
+                    libraryActions
                 }
             }
-            .labelsHidden()
-            .pickerStyle(.segmented)
-            .frame(width: 230)
+        }
+    }
 
+    private var contentModeControl: some View {
+        HStack(spacing: 8) {
+            Text(AppText.savedTranscriptContent)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            if session.isTranscribeOnlyMode {
+                Text(session.effectiveSavedTranscriptContentMode.title)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(.secondary)
+            } else {
+                Picker(AppText.savedTranscriptContent, selection: $session.savedTranscriptContentMode) {
+                    ForEach(session.availableSavedTranscriptContentModes) { mode in
+                        Text(mode.title).tag(mode)
+                    }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .frame(minWidth: 210, idealWidth: 230, maxWidth: 280)
+            }
+        }
+    }
+
+    private var libraryActions: some View {
+        HStack(spacing: 9) {
             Button {
                 session.openTranscriptsFolder()
             } label: {
@@ -94,11 +139,6 @@ struct TranscriptLibraryView: View {
             }
             .disabled(session.savedTranscripts.isEmpty)
             .help(AppText.deleteAllSavedTranscriptsHelp)
-
-            Button(AppText.close) {
-                dismiss()
-            }
-            .keyboardShortcut(.cancelAction)
         }
     }
 
@@ -218,18 +258,17 @@ struct TranscriptLibraryView: View {
     @ViewBuilder
     private func draftEditor(for transcript: SavedTranscript) -> some View {
         if transcript.isOriginalAndTranslation {
-            HStack(alignment: .top, spacing: 12) {
-                draftEditorPane(
-                    title: AppText.original,
-                    text: $session.savedDraftSourceText,
-                    field: .source
-                )
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .top, spacing: 12) {
+                    sourceEditorPane
+                    translationEditorPane
+                }
+                .frame(minWidth: AirTranslateDesign.libraryEditorBreakpoint)
 
-                draftEditorPane(
-                    title: AppText.translation,
-                    text: $session.savedDraftTranslationText,
-                    field: .translation
-                )
+                VStack(alignment: .leading, spacing: 12) {
+                    sourceEditorPane
+                    translationEditorPane
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
@@ -239,6 +278,22 @@ struct TranscriptLibraryView: View {
                 field: .source
             )
         }
+    }
+
+    private var sourceEditorPane: some View {
+        draftEditorPane(
+            title: AppText.original,
+            text: $session.savedDraftSourceText,
+            field: .source
+        )
+    }
+
+    private var translationEditorPane: some View {
+        draftEditorPane(
+            title: AppText.translation,
+            text: $session.savedDraftTranslationText,
+            field: .translation
+        )
     }
 
     private func draftEditorPane(

@@ -14,7 +14,10 @@ struct AirTranslateApp: App {
     var body: some Scene {
         WindowGroup("AirTranslate", id: AirTranslateWindowID.main) {
             ContentView(session: session)
-                .frame(minWidth: 900, minHeight: 560)
+                .frame(
+                    minWidth: AirTranslateDesign.mainWindowMinimumWidth,
+                    minHeight: AirTranslateDesign.mainWindowMinimumHeight
+                )
                 .background(MenuBarPanelInstaller(session: session, controller: menuBarPanelController))
         }
         .commands {

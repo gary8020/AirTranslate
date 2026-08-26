@@ -17,19 +17,22 @@ struct SettingsView: View {
     @State private var speechRecognitionPermission: SettingsPermissionState = .unknown
 
     var body: some View {
-        HStack(spacing: 0) {
+        NavigationSplitView {
             SettingsSidebar(selection: selectedCategory)
-                .frame(width: AirTranslateDesign.sidebarMinimum)
-
-            Divider()
-                .opacity(0.45)
-
+                .navigationSplitViewColumnWidth(
+                    min: AirTranslateDesign.settingsSidebarMinimum,
+                    ideal: AirTranslateDesign.settingsSidebarIdeal,
+                    max: AirTranslateDesign.settingsSidebarMaximum
+                )
+        } detail: {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
                     SettingsPageHeader(category: selectedCategory.wrappedValue)
 
                     selectedContent
                 }
+                .frame(maxWidth: AirTranslateDesign.settingsDetailMaximum, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
                 .padding(.horizontal, 24)
                 .padding(.vertical, 28)
             }
@@ -37,7 +40,13 @@ struct SettingsView: View {
             .scrollIndicators(.automatic)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .frame(minWidth: 900, maxWidth: .infinity, minHeight: 650, maxHeight: .infinity)
+        .navigationSplitViewStyle(.balanced)
+        .frame(
+            minWidth: AirTranslateDesign.settingsWindowMinimumWidth,
+            maxWidth: .infinity,
+            minHeight: AirTranslateDesign.settingsWindowMinimumHeight,
+            maxHeight: .infinity
+        )
         .onAppear(perform: applyRequestedSettingsCategory)
         .onChange(of: session.requestedSettingsCategoryID) { _, _ in
             applyRequestedSettingsCategory()
@@ -99,8 +108,33 @@ struct SettingsView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
-                .frame(width: 340)
+                .frame(minWidth: 300, idealWidth: 340, maxWidth: .infinity)
                 .disabled(isSessionConfigurationLocked)
+                .accessibilityLabel(SettingsCopy.processingEngine)
+                .accessibilityValue(processingModeSelection.wrappedValue.title)
+                .accessibilityHint(SettingsCopy.processingEngineDetail)
+            }
+
+            if processingModeSelection.wrappedValue == .gemini {
+                SettingsControlRow(
+                    title: SettingsCopy.geminiLiveMode,
+                    detail: SettingsCopy.geminiLiveModeDetail,
+                    systemImage: "waveform.badge.mic"
+                ) {
+                    Picker(SettingsCopy.geminiLiveMode, selection: geminiModelSelection) {
+                        ForEach(GeminiTranslationModel.selectableCases) { model in
+                            Text(model.isTranscription ? SettingsCopy.transcribe : SettingsCopy.translate)
+                                .tag(model)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .frame(minWidth: 230, idealWidth: 300, maxWidth: .infinity)
+                    .disabled(isSessionConfigurationLocked)
+                    .accessibilityLabel(SettingsCopy.geminiLiveMode)
+                    .accessibilityValue(geminiModelSelection.wrappedValue.title)
+                    .accessibilityHint(SettingsCopy.geminiLiveModeDetail)
+                }
             }
 
             if (processingModeSelection.wrappedValue == .openAI || processingModeSelection.wrappedValue == .gptTranscription), !session.hasOpenAIAPIKey {
@@ -168,12 +202,12 @@ struct SettingsView: View {
                 }
                 .labelsHidden()
                 .frame(width: 220)
-                .disabled(isSessionConfigurationLocked || session.isUsingProviderRealtimeTranslation || session.isUsingGPTTranscriptionMode)
+                .disabled(isSessionConfigurationLocked || session.isUsingProviderRealtimeTranslation || session.isUsingProviderTranscriptionMode)
             }
 
             if session.isUsingProviderRealtimeTranslation {
                 SettingsNoticeRow(text: SettingsCopy.realtimeTranslationOutputOnly, systemImage: "waveform")
-            } else if session.isUsingGPTTranscriptionMode {
+            } else if session.isUsingProviderTranscriptionMode {
                 SettingsNoticeRow(text: AppText.gptTranscriptionSourceOnly, systemImage: "text.quote")
             }
 
@@ -346,12 +380,14 @@ struct SettingsView: View {
                 SettingsNoticeRow(text: SettingsCopy.captureRunningDisabledReason, systemImage: "pause.circle")
             }
 
-            if session.isUsingGPTTranscriptionMode {
+            if session.isUsingProviderTranscriptionMode {
                 SettingsValueRow(
                     title: AppText.outputMode,
-                    detail: AppText.gptTranscriptionModeDescription,
+                    detail: session.isUsingGeminiTranscriptionMode
+                        ? SettingsCopy.geminiTranscribeSourceOnlyDetail
+                        : AppText.gptTranscriptionModeDescription,
                     systemImage: "rectangle.split.2x1",
-                    value: AppText.gptTranscriptionSourceOnly
+                    value: SettingsCopy.originalOnly
                 )
             } else {
                 SettingsControlRow(
@@ -375,7 +411,7 @@ struct SettingsView: View {
                 SettingsNoticeRow(text: SettingsCopy.realtimeTranslationOutputOnly, systemImage: "waveform")
             }
 
-            if !session.isUsingGPTTranscriptionMode {
+            if !session.isUsingProviderTranscriptionMode {
                 SettingsToggleRow(
                     title: AppText.voiceOutput,
                     detail: SettingsCopy.dubbingDetail,
@@ -456,14 +492,20 @@ struct SettingsView: View {
                 detail: AppText.autoSaveDescription,
                 systemImage: "archivebox"
             ) {
-                Picker(AppText.savedTranscriptContent, selection: lockedSessionConfigurationBinding($session.savedTranscriptContentMode)) {
-                    ForEach(SavedTranscriptContentMode.allCases) { mode in
-                        Text(mode.title).tag(mode)
+                if session.isTranscribeOnlyMode {
+                    Text(session.effectiveSavedTranscriptContentMode.title)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker(AppText.savedTranscriptContent, selection: lockedSessionConfigurationBinding($session.savedTranscriptContentMode)) {
+                        ForEach(session.availableSavedTranscriptContentModes) { mode in
+                            Text(mode.title).tag(mode)
+                        }
                     }
+                    .labelsHidden()
+                    .frame(minWidth: 150, idealWidth: 170, maxWidth: .infinity)
+                    .disabled(isSessionConfigurationLocked)
                 }
-                .labelsHidden()
-                .frame(width: 170)
-                .disabled(isSessionConfigurationLocked)
             }
         }
     }
@@ -717,14 +759,17 @@ struct SettingsView: View {
 
             SettingsControlRow(
                 title: AppText.geminiTranslationModel,
-                detail: SettingsCopy.geminiTranslationDetail,
+                detail: SettingsCopy.geminiLiveModeDetail,
                 systemImage: "sparkles"
             ) {
-                Text(GeminiTranslationModel.gemini35LiveTranslate.title)
+                Text(
+                    session.geminiTranslationModel.isEnabled
+                        ? session.geminiTranslationModel.title
+                        : session.preferredGeminiModel.title
+                )
                     .font(.callout.weight(.semibold))
                     .foregroundStyle(selectedProcessingMode == .gemini ? Color.accentColor : Color.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -736,7 +781,7 @@ struct SettingsView: View {
         if session.isUsingOpenAIRealtime {
             return .openAI
         }
-        if session.isUsingGeminiTranslation {
+        if session.isUsingGemini {
             return .gemini
         }
         return .apple
@@ -769,8 +814,19 @@ struct SettingsView: View {
             case .gptTranscription:
                 session.useGPTTranscriptionMode()
             case .gemini:
-                session.useGeminiTranslationMode()
+                session.usePreferredGeminiMode()
             }
+        }
+    }
+
+    private var geminiModelSelection: Binding<GeminiTranslationModel> {
+        Binding {
+            session.geminiTranslationModel.isEnabled
+                ? session.geminiTranslationModel
+                : session.preferredGeminiModel
+        } set: { model in
+            guard !isSessionConfigurationLocked else { return }
+            session.useGeminiMode(model)
         }
     }
 
@@ -1122,10 +1178,10 @@ private enum SettingsCopy {
     static let modeSettings = AppText.localized(english: "Mode Settings", korean: "모드 설정")
     static let processingEngine = AppText.localized(english: "Processing Mode", korean: "처리 방식")
     static let processingEngineDetail = AppText.localized(
-        english: "Choose exactly one active engine: local Apple mode, GPT Realtime, GPT Transcription, or Gemini Live Translate.",
-        korean: "Apple 기본 모드, GPT Realtime, GPT 전사, Gemini 실시간 번역 중 하나만 활성화합니다.",
-        japanese: "Appleローカルモード、GPT Realtime、GPT文字起こし、Gemini Live翻訳から1つだけ有効にします。",
-        chineseSimplified: "仅启用一种处理方式：Apple 本地模式、GPT Realtime、GPT 转写或 Gemini 实时翻译。"
+        english: "Choose exactly one active engine: local Apple mode, GPT Realtime, GPT Transcription, or Gemini Live.",
+        korean: "Apple 기본 모드, GPT Realtime, GPT 전사, Gemini Live 중 하나만 활성화합니다.",
+        japanese: "Appleローカルモード、GPT Realtime、GPT文字起こし、Gemini Liveから1つだけ有効にします。",
+        chineseSimplified: "仅启用一种处理方式：Apple 本地模式、GPT Realtime、GPT 转写或 Gemini Live。"
     )
     static let enterOpenAIAPIKey = AppText.localized(
         english: "Enter OpenAI API key",
@@ -1145,10 +1201,10 @@ private enum SettingsCopy {
         korean: "Apple 모드에서 번역 자막 또는 원문 전사만 중에서 선택합니다."
     )
     static let realtimeTranslationOutputOnly = AppText.localized(
-        english: "API live translation modes are translation-only. Choose Apple or GPT Transcription for source-only captions.",
-        korean: "API 실시간 번역 모드는 번역 전용입니다. 원문 자막만 필요하면 Apple 또는 GPT 전사를 선택하세요.",
-        japanese: "APIライブ翻訳モードは翻訳専用です。原文字幕のみの場合はAppleまたはGPT文字起こしを選択してください。",
-        chineseSimplified: "API 实时翻译模式仅用于翻译。若只需原文字幕，请选择 Apple 或 GPT 转写。"
+        english: "API live translation modes produce translated captions. For source-only captions, choose Apple transcription, GPT Transcription, or Gemini Transcribe.",
+        korean: "API 실시간 번역 모드는 번역 자막을 만듭니다. 원문 자막만 필요하면 Apple 전사, GPT 전사 또는 Gemini 전사를 선택하세요.",
+        japanese: "APIライブ翻訳モードは翻訳字幕を生成します。原文字幕のみの場合はApple文字起こし、GPT文字起こし、またはGemini文字起こしを選択してください。",
+        chineseSimplified: "API 实时翻译模式会生成翻译字幕。若只需原文字幕，请选择 Apple 转写、GPT 转写或 Gemini 转写。"
     )
     static let languagePairDetail = AppText.localized(
         english: "Language pair is changed from the quick settings sidebar.",
@@ -1199,6 +1255,42 @@ private enum SettingsCopy {
     static let geminiTranslationDetail = AppText.localized(
         english: "Use Gemini 3.5 Live Translate for direct audio-to-live-translation sessions.",
         korean: "Gemini 3.5 Live Translate로 오디오를 직접 실시간 번역합니다."
+    )
+    static let geminiLiveMode = AppText.localized(
+        english: "Gemini Live Mode",
+        korean: "Gemini Live 모드",
+        japanese: "Gemini Liveモード",
+        chineseSimplified: "Gemini Live 模式"
+    )
+    static let geminiLiveModeDetail = AppText.localized(
+        english: "Translate produces source and target captions. Transcribe detects the spoken language and keeps original captions only.",
+        korean: "번역은 원문과 번역 자막을 만들고, 전사는 말하는 언어를 감지해 원문 자막만 유지합니다.",
+        japanese: "翻訳は原文と翻訳字幕を生成し、文字起こしは話し言葉を検出して原文字幕のみを保持します。",
+        chineseSimplified: "翻译会生成原文和译文字幕，转写会检测口语并仅保留原文字幕。"
+    )
+    static let translate = AppText.localized(
+        english: "Translate",
+        korean: "번역",
+        japanese: "翻訳",
+        chineseSimplified: "翻译"
+    )
+    static let transcribe = AppText.localized(
+        english: "Transcribe",
+        korean: "전사",
+        japanese: "文字起こし",
+        chineseSimplified: "转写"
+    )
+    static let originalOnly = AppText.localized(
+        english: "Original only",
+        korean: "원문만",
+        japanese: "原文のみ",
+        chineseSimplified: "仅原文"
+    )
+    static let geminiTranscribeSourceOnlyDetail = AppText.localized(
+        english: "Gemini detects the spoken language automatically and shows original captions only.",
+        korean: "Gemini가 말하는 언어를 자동 감지하고 원문 자막만 표시합니다.",
+        japanese: "Geminiが話し言葉を自動検出し、原文字幕のみを表示します。",
+        chineseSimplified: "Gemini 会自动检测口语，并仅显示原文字幕。"
     )
     static let audioInputDetail = AppText.localized(
         english: "Mac audio captures system playback. Microphone captures the selected input device.",
@@ -1699,7 +1791,27 @@ private struct SettingsNoticeActionRow: View {
     let action: () -> Void
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 10) {
+                noticeLabel
+
+                Spacer(minLength: 12)
+
+                actionButton
+            }
+            .frame(minWidth: 520)
+
+            VStack(alignment: .leading, spacing: 10) {
+                noticeLabel
+                actionButton
+            }
+        }
+        .padding(.vertical, 9)
+        .settingsRowSeparator()
+    }
+
+    private var noticeLabel: some View {
+        HStack(alignment: .top, spacing: 10) {
             Image(systemName: systemImage)
                 .font(.body.weight(.medium))
                 .foregroundStyle(Color.orange)
@@ -1709,18 +1821,16 @@ private struct SettingsNoticeActionRow: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.orange)
                 .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 12)
-
-            Button(action: action) {
-                Label(actionTitle, systemImage: "arrow.right.circle.fill")
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-            .accessibilityLabel(actionTitle)
         }
-        .padding(.vertical, 9)
-        .settingsRowSeparator()
+    }
+
+    private var actionButton: some View {
+        Button(action: action) {
+            Label(actionTitle, systemImage: "arrow.right.circle.fill")
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .accessibilityLabel(actionTitle)
     }
 }
 
@@ -1750,13 +1860,25 @@ private struct SettingsControlRow<Trailing: View>: View {
     @ViewBuilder let trailing: Trailing
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            SettingsRowLabel(title: title, detail: detail, systemImage: systemImage)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .center, spacing: 10) {
+                SettingsRowLabel(title: title, detail: detail, systemImage: systemImage)
 
-            Spacer(minLength: 16)
+                Spacer(minLength: 16)
 
-            trailing
-                .controlSize(.regular)
+                trailing
+                    .controlSize(.regular)
+            }
+            .frame(minWidth: AirTranslateDesign.settingsRowBreakpoint)
+
+            VStack(alignment: .leading, spacing: 10) {
+                SettingsRowLabel(title: title, detail: detail, systemImage: systemImage)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                trailing
+                    .controlSize(.regular)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(.vertical, 9)
         .settingsRowSeparator()
@@ -1840,7 +1962,7 @@ private struct SettingsRowLabel: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(width: 230, alignment: .leading)
+        .frame(minWidth: 210, idealWidth: 230, maxWidth: 300, alignment: .leading)
         .layoutPriority(1)
     }
 }

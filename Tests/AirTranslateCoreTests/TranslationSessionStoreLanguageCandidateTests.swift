@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import AirTranslate
 
-@Suite
+@Suite(.serialized)
 struct TranslationSessionStoreLanguageCandidateTests {
     @Test
     func supportedLanguageOrderIsUsedForAutoDetectionCandidateSelection() {
@@ -337,6 +337,148 @@ struct TranslationSessionStoreLanguageCandidateTests {
         session.useAppleDefaultMode()
         #expect(session.geminiTranslationModel == .off)
         #expect(!session.isDubbingEnabled)
+    }
+
+    @Test
+    @MainActor
+    func geminiTranscriptionIsOriginalOnlyAndRestoresPreferences() {
+        let session = TranslationSessionStore()
+        session.useTranslationMode()
+        session.floatingCaptionDisplayMode = .originalAndTranslation
+        session.savedTranscriptContentMode = .originalAndTranslation
+        session.isDubbingEnabled = true
+
+        session.useGeminiMode(.gemini35TranscribeLive)
+
+        #expect(session.isUsingGeminiTranscriptionMode)
+        #expect(session.isUsingProviderTranscriptionMode)
+        #expect(!session.shouldShowTranslationPane)
+        #expect(session.floatingCaptionDisplayMode == .original)
+        #expect(session.availableFloatingCaptionDisplayModes == [.original])
+        #expect(session.savedTranscriptContentMode == .originalAndTranslation)
+        #expect(session.effectiveSavedTranscriptContentMode == .original)
+        #expect(session.availableSavedTranscriptContentModes == [.original])
+        #expect(!session.isDubbingEnabled)
+        #expect(session.languageSummary == AppText.localized(
+            english: "Automatic language detection",
+            korean: "입력 언어 자동 감지",
+            japanese: "入力言語を自動検出",
+            chineseSimplified: "自动检测输入语言"
+        ))
+
+        session.useGeminiMode(.gemini35LiveTranslate)
+
+        #expect(session.isUsingGeminiTranslation)
+        #expect(session.shouldShowTranslationPane)
+        #expect(session.floatingCaptionDisplayMode == .originalAndTranslation)
+        #expect(session.savedTranscriptContentMode == .originalAndTranslation)
+        #expect(session.effectiveSavedTranscriptContentMode == .originalAndTranslation)
+        #expect(session.isDubbingEnabled)
+    }
+
+    @Test
+    @MainActor
+    func geminiPreferredSubmodeReturnsAfterAnotherProvider() {
+        let session = TranslationSessionStore()
+        session.floatingCaptionDisplayMode = .originalAndTranslation
+
+        session.useGeminiMode(.gemini35TranscribeLive)
+        session.useAppleDefaultMode()
+
+        #expect(session.floatingCaptionDisplayMode == .originalAndTranslation)
+
+        session.usePreferredGeminiMode()
+
+        #expect(session.geminiTranslationModel == .gemini35TranscribeLive)
+        #expect(session.preferredGeminiModel == .gemini35TranscribeLive)
+        #expect(!session.openAITranscriptionModel.isEnabled)
+        #expect(!session.openAITranslationModel.isEnabled)
+    }
+
+    @Test
+    @MainActor
+    func restoredGeminiTranscriptionPreservesFloatingCaptionPreference() {
+        StandardUserDefaultsTestLock.shared.withLock {
+            let defaults = UserDefaults.standard
+            let keys = [
+                "geminiTranslationModelID",
+                "preferredGeminiModelID",
+                "floatingCaptionDisplayMode",
+            ]
+            let previous = Dictionary(uniqueKeysWithValues: keys.map { ($0, defaults.object(forKey: $0)) })
+            defer {
+                for key in keys {
+                    if let value = previous[key] {
+                        defaults.set(value, forKey: key)
+                    } else {
+                        defaults.removeObject(forKey: key)
+                    }
+                }
+            }
+
+            defaults.set(GeminiTranslationModel.gemini35TranscribeLive.rawValue, forKey: "geminiTranslationModelID")
+            defaults.set(GeminiTranslationModel.gemini35TranscribeLive.rawValue, forKey: "preferredGeminiModelID")
+            defaults.set(FloatingCaptionDisplayMode.originalAndTranslation.rawValue, forKey: "floatingCaptionDisplayMode")
+
+            let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
+
+            #expect(session.isUsingGeminiTranscriptionMode)
+            #expect(session.floatingCaptionDisplayMode == .original)
+
+            session.useGeminiMode(.gemini35LiveTranslate)
+
+            #expect(session.floatingCaptionDisplayMode == .originalAndTranslation)
+        }
+    }
+
+    @Test
+    @MainActor
+    func geminiTranscriptionFinalizesAPlainSourceLine() {
+        let session = TranslationSessionStore()
+        session.useGeminiMode(.gemini35TranscribeLive)
+        session.isRunning = true
+
+        session.updateGeminiLiveTranscription("hello", isFinal: false)
+        #expect(session.lines.count == 1)
+        #expect(session.lines[0].sourceText == "hello")
+        #expect(session.lines[0].translatedText.isEmpty)
+        #expect(!session.lines[0].isFinal)
+
+        session.updateGeminiLiveTranscription("hello world", isFinal: true)
+        #expect(session.lines.count == 1)
+        #expect(session.lines[0].sourceText == "hello world")
+        #expect(session.lines[0].translatedText.isEmpty)
+        #expect(session.lines[0].isFinal)
+
+        session.updateGeminiLiveTranscription("next sentence", isFinal: false)
+        #expect(session.lines.count == 2)
+        #expect(session.lines[1].sourceText == "next sentence")
+    }
+
+    @Test
+    @MainActor
+    func geminiTranscriptionStartRequiresGeminiAPIKey() {
+        let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
+        session.useGeminiMode(.gemini35TranscribeLive)
+        session.hasGeminiAPIKey = false
+
+        let readiness = session.startReadinessAssessment()
+
+        #expect(readiness.issue == .geminiAPIKeyMissing)
+        #expect(!readiness.canStart)
+    }
+
+    @Test
+    @MainActor
+    func geminiTranscriptionStartDoesNotRequireAppleLocalAssets() {
+        let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
+        session.useGeminiMode(.gemini35TranscribeLive)
+        session.hasGeminiAPIKey = true
+
+        let readiness = session.startReadinessAssessment()
+
+        #expect(readiness.canStart)
+        #expect(readiness.issue == nil)
     }
 
     @Test

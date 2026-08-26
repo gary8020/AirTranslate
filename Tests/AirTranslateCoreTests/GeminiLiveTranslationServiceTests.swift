@@ -36,6 +36,7 @@ struct GeminiLiveTranslationServiceTests {
         """)
 
         #expect(delegate.inputTranscript == "hello")
+        #expect(delegate.inputTranscriptIsFinal)
         #expect(delegate.outputTranscript == "안녕하세요")
         #expect(delegate.audio == "AQIDBA==")
         #expect(delegate.sampleRate == 24_000)
@@ -76,6 +77,46 @@ struct GeminiLiveTranslationServiceTests {
         #expect(detection["silenceDurationMs"] as? Int == 250)
         #expect(detection["prefixPaddingMs"] as? Int == 120)
         #expect(setup["model"] as? String == "models/gemini-3.5-live-translate-preview")
+        let generationConfig = try #require(setup["generationConfig"] as? [String: Any])
+        #expect(generationConfig["responseModalities"] as? [String] == ["AUDIO"])
+        #expect(generationConfig["translationConfig"] != nil)
+        #expect(setup["outputAudioTranscription"] != nil)
+    }
+
+    @Test
+    func transcribeSetupUsesSmartAutomaticLanguageTextMode() throws {
+        let data = try GeminiLiveTranslationService.encodedSetupMessage(
+            model: .gemini35TranscribeLive,
+            targetLanguage: .korean
+        )
+
+        let root = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let setup = try #require(root["setup"] as? [String: Any])
+        let generationConfig = try #require(setup["generationConfig"] as? [String: Any])
+        let inputTranscription = try #require(setup["inputAudioTranscription"] as? [String: Any])
+
+        #expect(setup["model"] as? String == "models/gemini-3.5-transcribe-live")
+        #expect(generationConfig["responseModalities"] as? [String] == ["TEXT"])
+        #expect(generationConfig["translationConfig"] == nil)
+        #expect(setup["realtimeInputConfig"] == nil)
+        #expect(inputTranscription["languageCodes"] as? [String] == [])
+        #expect(inputTranscription["mode"] as? String == "SMART")
+        #expect(setup["outputAudioTranscription"] == nil)
+    }
+
+    @Test
+    func interimAndFinalInputTranscriptsKeepAuthorityBoundary() {
+        let service = GeminiLiveTranslationService()
+        let delegate = GeminiLiveTranslationProbe()
+        service.delegate = delegate
+
+        service.handleEventText(#"{"serverContent":{"interimInputTranscription":{"text":"hel","languageCode":"en"}}}"#)
+        #expect(delegate.inputTranscript == "hel")
+        #expect(!delegate.inputTranscriptIsFinal)
+
+        service.handleEventText(#"{"serverContent":{"inputTranscription":{"text":"hello","languageCode":"en"}}}"#)
+        #expect(delegate.inputTranscript == "hello")
+        #expect(delegate.inputTranscriptIsFinal)
     }
 
     @Test
@@ -315,6 +356,7 @@ struct GeminiLiveTranslationServiceTests {
 
 private final class GeminiLiveTranslationProbe: GeminiLiveTranslationServiceDelegate {
     var inputTranscript = ""
+    var inputTranscriptIsFinal = false
     var outputTranscript = ""
     var audio = ""
     var sampleRate = 0.0
@@ -324,9 +366,11 @@ private final class GeminiLiveTranslationProbe: GeminiLiveTranslationServiceDele
     func geminiLiveTranslationService(
         _ service: GeminiLiveTranslationService,
         didReceiveInputTranscript text: String,
-        languageCode _: String?
+        languageCode _: String?,
+        isFinal: Bool
     ) {
         inputTranscript = text
+        inputTranscriptIsFinal = isFinal
     }
 
     func geminiLiveTranslationService(

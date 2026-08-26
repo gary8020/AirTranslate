@@ -218,8 +218,10 @@ enum AppText {
     )
     static let geminiAPIKey = localized(english: "Gemini API Key", korean: "Gemini API 키")
     static let geminiAPIKeyDescription = localized(
-        english: "AirTranslate stores this key in macOS Keychain and uses it only when Gemini Live Translate is selected.",
-        korean: "AirTranslate는 이 키를 macOS Keychain에 저장하고 Gemini 실시간 번역을 선택했을 때만 사용합니다."
+        english: "AirTranslate stores this key in macOS Keychain and uses it only for the selected Gemini Live mode.",
+        korean: "AirTranslate는 이 키를 macOS Keychain에 저장하고 선택한 Gemini Live 모드에서만 사용합니다.",
+        japanese: "AirTranslateはこのキーをmacOS Keychainに保存し、選択したGemini Liveモードでのみ使用します。",
+        chineseSimplified: "AirTranslate 会将此密钥存储在 macOS Keychain 中，并且仅在所选 Gemini Live 模式下使用。"
     )
     static let geminiAPIKeySaved = localized(
         english: "Gemini API key saved in Keychain.",
@@ -242,8 +244,10 @@ enum AppText {
         chineseSimplified: "需要 Gemini API key"
     )
     static let geminiAPIKeyMissing = localized(
-        english: "Add a Gemini API key in Settings before using Gemini Live Translate.",
-        korean: "Gemini 실시간 번역을 사용하려면 설정에서 Gemini API 키를 먼저 입력하세요."
+        english: "Add a Gemini API key in Settings before using Gemini Live.",
+        korean: "Gemini Live를 사용하려면 설정에서 Gemini API 키를 먼저 입력하세요.",
+        japanese: "Gemini Liveを使用する前に、設定でGemini APIキーを追加してください。",
+        chineseSimplified: "使用 Gemini Live 前，请先在设置中添加 Gemini API key。"
     )
     static let startBlockedLocalAssetsChecking = localized(
         english: "Still checking local language assets. Try again in a moment.",
@@ -288,16 +292,16 @@ enum AppText {
     )
     static let gptModels = localized(english: "OpenAI Realtime", korean: "OpenAI Realtime", japanese: "OpenAI Realtime", chineseSimplified: "OpenAI Realtime")
     static let geminiModels = localized(
-        english: "Gemini Live Translate",
-        korean: "Gemini 실시간 번역",
-        japanese: "Gemini Live翻訳",
-        chineseSimplified: "Gemini 实时翻译"
+        english: "Gemini Live",
+        korean: "Gemini Live",
+        japanese: "Gemini Live",
+        chineseSimplified: "Gemini Live"
     )
     static let geminiTranslationModel = localized(
-        english: "Live Translation Model",
-        korean: "실시간 번역 모델",
-        japanese: "Live翻訳モデル",
-        chineseSimplified: "实时翻译模型"
+        english: "Gemini Live Model",
+        korean: "Gemini Live 모델",
+        japanese: "Gemini Liveモデル",
+        chineseSimplified: "Gemini Live 模型"
     )
     static let gptTranscriptionModel = localized(
         english: "Transcription",
@@ -328,8 +332,10 @@ enum AppText {
         korean: "GPT 모드는 오디오를 OpenAI Realtime Translation으로 스트리밍하고 반환된 실시간 번역 흐름을 표시합니다."
     )
     static let geminiModelsDescription = localized(
-        english: "Gemini Live Translate streams audio directly to Gemini and shows the input and translated transcripts returned by the live session.",
-        korean: "Gemini 실시간 번역은 오디오를 Gemini로 직접 스트리밍하고 라이브 세션이 반환한 원문과 번역 전사를 표시합니다."
+        english: "Gemini Live streams audio directly to Gemini and shows source-only or translated captions for the selected mode.",
+        korean: "Gemini Live는 오디오를 Gemini로 직접 스트리밍하고 선택한 모드에 따라 원문 또는 번역 자막을 표시합니다.",
+        japanese: "Gemini Liveは音声をGeminiへ直接ストリーミングし、選択したモードに応じて原文または翻訳字幕を表示します。",
+        chineseSimplified: "Gemini Live 会将音频直接传输到 Gemini，并根据所选模式显示原文或翻译字幕。"
     )
     static let openAINativeOutput = localized(
         english: "OpenAI native output",

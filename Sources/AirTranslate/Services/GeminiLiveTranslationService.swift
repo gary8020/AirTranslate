@@ -6,7 +6,8 @@ protocol GeminiLiveTranslationServiceDelegate: AnyObject {
     func geminiLiveTranslationService(
         _ service: GeminiLiveTranslationService,
         didReceiveInputTranscript text: String,
-        languageCode: String?
+        languageCode: String?,
+        isFinal: Bool
     )
     func geminiLiveTranslationService(
         _ service: GeminiLiveTranslationService,
@@ -23,8 +24,6 @@ protocol GeminiLiveTranslationServiceDelegate: AnyObject {
 }
 
 final class GeminiLiveTranslationService: @unchecked Sendable {
-    static let modelID = "gemini-3.5-live-translate-preview"
-
     private static let inputAudioSampleRate = 16_000
     private static let outputAudioSampleRate = 24_000.0
     private static let maxAudioChunkMilliseconds = 100
@@ -347,26 +346,34 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
         model: GeminiTranslationModel,
         targetLanguage: LanguageOption
     ) throws -> Data {
+        let isTranscription = model.isTranscription
         let event = GeminiLiveSetupMessage(
             setup: GeminiLiveSetup(
                 model: "models/\(model.apiModelID)",
                 generationConfig: GeminiLiveGenerationConfig(
-                    responseModalities: ["AUDIO"],
-                    translationConfig: GeminiLiveTranslationConfig(
-                        targetLanguageCode: targetLanguage.geminiLiveLanguageCode,
-                        echoTargetLanguage: true
-                    )
+                    responseModalities: [isTranscription ? "TEXT" : "AUDIO"],
+                    translationConfig: isTranscription
+                        ? nil
+                        : GeminiLiveTranslationConfig(
+                            targetLanguageCode: targetLanguage.geminiLiveLanguageCode,
+                            echoTargetLanguage: true
+                        )
                 ),
-                realtimeInputConfig: GeminiLiveRealtimeInputConfig(
-                    automaticActivityDetection: GeminiLiveActivityDetection(
-                        startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
-                        endOfSpeechSensitivity: "END_SENSITIVITY_HIGH",
-                        silenceDurationMs: 250,
-                        prefixPaddingMs: 120
-                    )
+                realtimeInputConfig: isTranscription
+                    ? nil
+                    : GeminiLiveRealtimeInputConfig(
+                        automaticActivityDetection: GeminiLiveActivityDetection(
+                            startOfSpeechSensitivity: "START_SENSITIVITY_HIGH",
+                            endOfSpeechSensitivity: "END_SENSITIVITY_HIGH",
+                            silenceDurationMs: 250,
+                            prefixPaddingMs: 120
+                        )
+                    ),
+                inputAudioTranscription: GeminiLiveAudioTranscriptionConfig(
+                    languageCodes: isTranscription ? [] : nil,
+                    mode: isTranscription ? "SMART" : nil
                 ),
-                inputAudioTranscription: GeminiLiveEmptyObject(),
-                outputAudioTranscription: GeminiLiveEmptyObject()
+                outputAudioTranscription: isTranscription ? nil : GeminiLiveEmptyObject()
             )
         )
         return try JSONEncoder().encode(event)
@@ -605,13 +612,25 @@ final class GeminiLiveTranslationService: @unchecked Sendable {
                 $0.geminiLiveTranslationServiceDidInterruptOutputAudio(self)
             }
         }
+        if let interimTranscript = content.interimInputTranscription?.text,
+           !interimTranscript.isEmpty {
+            notifyDelegate(connectionGeneration: connectionGeneration) {
+                $0.geminiLiveTranslationService(
+                    self,
+                    didReceiveInputTranscript: interimTranscript,
+                    languageCode: content.interimInputTranscription?.languageCode,
+                    isFinal: false
+                )
+            }
+        }
         if let inputTranscript = content.inputTranscription?.text,
            !inputTranscript.isEmpty {
             notifyDelegate(connectionGeneration: connectionGeneration) {
                 $0.geminiLiveTranslationService(
                     self,
                     didReceiveInputTranscript: inputTranscript,
-                    languageCode: content.inputTranscription?.languageCode
+                    languageCode: content.inputTranscription?.languageCode,
+                    isFinal: true
                 )
             }
         }
@@ -948,8 +967,8 @@ private struct GeminiLiveSetup: Encodable {
     let model: String
     let generationConfig: GeminiLiveGenerationConfig
     let realtimeInputConfig: GeminiLiveRealtimeInputConfig?
-    let inputAudioTranscription: GeminiLiveEmptyObject
-    let outputAudioTranscription: GeminiLiveEmptyObject
+    let inputAudioTranscription: GeminiLiveAudioTranscriptionConfig
+    let outputAudioTranscription: GeminiLiveEmptyObject?
 }
 
 private struct GeminiLiveRealtimeInputConfig: Encodable {
@@ -965,7 +984,7 @@ private struct GeminiLiveActivityDetection: Encodable {
 
 private struct GeminiLiveGenerationConfig: Encodable {
     let responseModalities: [String]
-    let translationConfig: GeminiLiveTranslationConfig
+    let translationConfig: GeminiLiveTranslationConfig?
 }
 
 private struct GeminiLiveTranslationConfig: Encodable {
@@ -974,6 +993,11 @@ private struct GeminiLiveTranslationConfig: Encodable {
 }
 
 private struct GeminiLiveEmptyObject: Encodable {}
+
+private struct GeminiLiveAudioTranscriptionConfig: Encodable {
+    let languageCodes: [String]?
+    let mode: String?
+}
 
 private struct GeminiLiveRealtimeInputMessage: Encodable {
     let realtimeInput: GeminiLiveRealtimeInput
@@ -997,6 +1021,7 @@ private struct GeminiLiveServerMessage: Decodable {
 private struct GeminiLiveSetupComplete: Decodable {}
 
 private struct GeminiLiveServerContent: Decodable {
+    let interimInputTranscription: GeminiLiveTranscript?
     let inputTranscription: GeminiLiveTranscript?
     let outputTranscription: GeminiLiveTranscript?
     let modelTurn: GeminiLiveModelTurn?

@@ -1,9 +1,25 @@
 import SwiftUI
 
 enum AirTranslateDesign {
+    static let mainWindowMinimumWidth: CGFloat = 900
+    static let mainWindowMinimumHeight: CGFloat = 560
+    static let settingsWindowMinimumWidth: CGFloat = 900
+    static let settingsWindowMinimumHeight: CGFloat = 650
+    static let libraryMinimumWidth: CGFloat = 820
+    static let libraryIdealWidth: CGFloat = 960
+    static let libraryMinimumHeight: CGFloat = 520
+    static let libraryIdealHeight: CGFloat = 620
     static let sidebarMinimum: CGFloat = 260
     static let sidebarIdeal: CGFloat = 280
     static let sidebarMaximum: CGFloat = 300
+    static let settingsSidebarMinimum: CGFloat = 220
+    static let settingsSidebarIdeal: CGFloat = 240
+    static let settingsSidebarMaximum: CGFloat = 260
+    static let settingsDetailMaximum: CGFloat = 760
+    static let transcriptPairBreakpoint: CGFloat = 620
+    static let settingsRowBreakpoint: CGFloat = 680
+    static let libraryEditorBreakpoint: CGFloat = 620
+    static let transcriptPaneMinimum: CGFloat = 280
     static let workspacePadding: CGFloat = 20
     static let sectionSpacing: CGFloat = 14
     static let rowSpacing: CGFloat = 8

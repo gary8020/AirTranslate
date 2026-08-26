@@ -67,8 +67,8 @@ private struct CaptionTranscriptFeed: View {
                 AppText.noCaptionsYet,
                 systemImage: "captions.bubble",
                 description: Text(
-                    session.isUsingGPTTranscriptionMode
-                        ? AppText.gptTranscriptionNoCaptionsDescription(for: session.audioInputSource)
+                    session.isUsingProviderTranscriptionMode
+                        ? sourceOnlyNoCaptionsDescription
                         : AppText.noCaptionsDescription
                 )
             )
@@ -78,6 +78,18 @@ private struct CaptionTranscriptFeed: View {
         } else {
             transcriptScrollView
         }
+    }
+
+    private var sourceOnlyNoCaptionsDescription: String {
+        if session.isUsingGeminiTranscriptionMode {
+            return AppText.localized(
+                english: "Start capture to see automatically detected source captions.",
+                korean: "캡처를 시작하면 자동 감지된 원문 자막이 표시됩니다.",
+                japanese: "キャプチャを開始すると、自動検出された原文字幕が表示されます。",
+                chineseSimplified: "开始采集后，将显示自动检测的原文字幕。"
+            )
+        }
+        return AppText.gptTranscriptionNoCaptionsDescription(for: session.audioInputSource)
     }
 
     private var transcriptScrollView: some View {
@@ -166,9 +178,19 @@ private struct CaptionLineView: View, Equatable {
     var body: some View {
         Group {
             if showsTranslationPane {
-                HStack(alignment: .top, spacing: 16) {
-                    originalPane
-                    translationPane
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 16) {
+                        originalPane
+                            .frame(minWidth: AirTranslateDesign.transcriptPaneMinimum)
+                        translationPane
+                            .frame(minWidth: AirTranslateDesign.transcriptPaneMinimum)
+                    }
+                    .frame(minWidth: AirTranslateDesign.transcriptPairBreakpoint)
+
+                    VStack(alignment: .leading, spacing: 12) {
+                        originalPane
+                        translationPane
+                    }
                 }
             } else {
                 originalPane

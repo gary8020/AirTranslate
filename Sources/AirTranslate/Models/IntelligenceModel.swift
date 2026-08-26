@@ -165,6 +165,12 @@ enum OpenAIRealtimeTranslationModel: String, CaseIterable, Identifiable {
 enum GeminiTranslationModel: String, CaseIterable, Identifiable, Sendable {
     case off
     case gemini35LiveTranslate = "gemini-3.5-live-translate-preview"
+    case gemini35TranscribeLive = "gemini-3.5-transcribe-live"
+
+    static let selectableCases: [GeminiTranslationModel] = [
+        .gemini35LiveTranslate,
+        .gemini35TranscribeLive,
+    ]
 
     var id: String { rawValue }
 
@@ -179,6 +185,8 @@ enum GeminiTranslationModel: String, CaseIterable, Identifiable, Sendable {
             )
         case .gemini35LiveTranslate:
             "Gemini 3.5 Live Translate"
+        case .gemini35TranscribeLive:
+            "Gemini 3.5 Transcribe Live"
         }
     }
 
@@ -186,11 +194,19 @@ enum GeminiTranslationModel: String, CaseIterable, Identifiable, Sendable {
         self != .off
     }
 
+    var isTranslation: Bool {
+        self == .gemini35LiveTranslate
+    }
+
+    var isTranscription: Bool {
+        self == .gemini35TranscribeLive
+    }
+
     var apiModelID: String {
         switch self {
         case .off:
             ""
-        case .gemini35LiveTranslate:
+        case .gemini35LiveTranslate, .gemini35TranscribeLive:
             rawValue
         }
     }
