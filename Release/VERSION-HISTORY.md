@@ -1,5 +1,20 @@
 # AirTranslate Version History
 
+## 1.6.0 - 2026-08-27
+
+### Added
+
+- Optional Gemini 3.5 Transcribe Live for original-only captions with automatic spoken-language detection when the user supplies a Gemini API key.
+
+### Changed
+
+- Gemini Live now handles finished session state, scheduled session resumption, GoAway reconnection recommendations, bounded context compression, and 40 ms audio transmission for more resilient long-running capture.
+- The workspace and Settings reflow at the minimum window size without hiding controls, and Apple, GPT, and Gemini transcription modes share the same original-only output behavior.
+
+### Fixed
+
+- Original-only transcription no longer leaves translated-voice controls or target-language routing visible.
+
 ## 1.5.1 - 2026-08-09
 
 ### Added

@@ -47,6 +47,14 @@ AirTranslate 可以捕获 Mac 正在播放的音频，实时转写并翻译，�
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.6.0 主要更新
+
+- **Gemini 原文转写与自动语言检测:** 添加自己的 Gemini API key 后，可选择 **Gemini 3.5 Transcribe Live**，获得不翻译的原文字幕；Gemini 会在采集过程中自动检测口语。
+- **更稳定的长时 Gemini 会话:** 处理 finished 状态、会话恢复、GoAway 重连建议、受限上下文压缩和 40ms 音频分块发送，增强长时间采集路径。
+- **原文专用的响应式流程:** 在最小支持尺寸下，工作区和设置会重新排布而不隐藏控件；Apple、GPT 与 Gemini 转写模式都会一致地隐藏目标语言、译文和译文语音控件。
+
+完整内容请参阅 [AirTranslate 1.6.0 发布说明](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.0)。
+
 ## 1.5.1 主要更新
 
 - **简洁一致的界面:** 主工作区、侧边栏、菜单栏、悬浮字幕、记录库和设置现在共享一套克制的间距、图标、表面、选中与悬停反馈体系。
@@ -92,7 +100,7 @@ AirTranslate 可以捕获 Mac 正在播放的音频，实时转写并翻译，�
 - 支持内置麦克风、蓝牙与 AirPods 麦克风输入
 - 基于 OpenAI Realtime Translation 的 GPT 模式
 - 用于原文字幕的可选 `gpt-live-transcribe` GPT 转写模式
-- Gemini 3.5 Live Translate 模式
+- Gemini 3.5 Live Translate 模式，以及可自动检测口语的原文专用 Gemini 3.5 Transcribe Live 可选模式
 - 面向 API 翻译流的 LIVE 翻译模式
 - Apple 默认模式的源语言自动检测已暂时停用，以改进语言切换稳定性
 - 改进麦克风输入稳定性，降低重复片段/切换抖动
@@ -112,7 +120,7 @@ AirTranslate 将快速选择和详细设置分开。
 | Apple 默认模式 | 本地优先的转写和翻译 | 使用 Apple Speech 转写，并用 Apple Translation 翻译所选语言对。源语言自动检测已暂时停用，以改进语言切换稳定性。 |
 | GPT 模式 | OpenAI Realtime 实时翻译 | 将音频直接流式发送到 OpenAI Realtime Translation。如果没有保存 API key，AirTranslate 会打开设置弹窗并聚焦 API key 输入框。 |
 | GPT 转写 | OpenAI 原文字幕 | 在可选模式中提供 OpenAI API key 后，使用 `gpt-live-transcribe` 生成不含翻译的原文字幕。 |
-| Gemini Live | Gemini 3.5 Live Translate | 将音频直接流式发送到 Gemini Live Translate，并显示返回的输入和翻译转写。如果没有保存 Gemini API key，AirTranslate 会打开设置弹窗并聚焦 key 输入框。 |
+| Gemini Live | Gemini 3.5 Live Translate 或原文转写 | Gemini 3.5 Live Translate 显示原文和译文；Gemini 3.5 Transcribe Live 仅显示自动检测口语后的原文字幕。两种模式都需要用户提供 Gemini API key。 |
 | 仅转写 | 只需要原文字幕 | 不运行翻译，只保留原文记录。 |
 | LIVE 翻译 | 需要模型直接生成译文流 | 使用所选 API 提供方的实时翻译模型直接生成翻译结果。 |
 
@@ -120,12 +128,12 @@ GPT/Gemini 模型细节、API key 输入、记录修正和语音输出都在齿�
 
 ## 隐私与 API key
 
-AirTranslate 不包含自有后端账号系统。
+AirTranslate 不包含账户系统，也没有开发者运营的中继或后端服务器。这并不表示所有模式都离线：启用可选提供方模式后，所选功能需要的音频或文本会直接发送到对应的外部 API。
 
 - Apple 默认模式使用 macOS 框架和 Apple 语言资源。
-- 只有启用 GPT 模式或可选 GPT 转写模式时才会发送 OpenAI 请求。
-- 只有启用 Gemini Live 模式时才会发送 Gemini 请求。
-- OpenAI 和 Gemini API key 不会硬编码、提交到仓库，也不会包含在发布包中。
+- 仅在启用 GPT 模式或可选 GPT 转写模式时，所需音频或文本才会使用用户的 OpenAI API key 直接发送到 OpenAI API。
+- 仅在启用 Gemini Live Translate 或 Gemini 3.5 Transcribe Live 时，所需音频才会使用用户的 Gemini API key 直接发送到 Google Gemini API。
+- OpenAI 和 Gemini API key 由用户提供并存储在 Keychain 中，绝不会硬编码、提交或包含在发布包中。
 - API key 使用 `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` 保存到 macOS Keychain。
 - 已保存记录是用户 Mac 上的纯文本文件。
 
@@ -161,7 +169,7 @@ AirTranslate 只请求捕获和转写流程需要的权限。
 最新开源构建可在 [GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest) 下载。DMG 是最简单的安装路径，ZIP 也会继续作为轻量压缩包提供。
 
 - [下载 AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [下载 AirTranslate-1.5.1.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.5.1/AirTranslate-1.5.1.zip)
+- [下载 AirTranslate-1.6.0.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.0/AirTranslate-1.6.0.zip)
 - [下载 AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [查看版本历史](Release/VERSION-HISTORY.md)
 

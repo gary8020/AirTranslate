@@ -47,6 +47,14 @@ The default workflow uses Apple frameworks. GPT Realtime and Gemini Live Transla
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## What's New in 1.6.0
+
+- **Gemini source-only transcription with automatic language detection:** Choose optional **Gemini 3.5 Transcribe Live** for original-only captions. Gemini detects the spoken language during capture after you add your own Gemini API key.
+- **More resilient long-running Gemini sessions:** Finished-state handling, session resumption, GoAway reconnect recommendations, bounded context compression, and 40 ms audio chunks keep the Gemini Live path prepared for extended capture.
+- **Responsive original-only workflow:** The smallest supported workspace and Settings windows reflow instead of hiding controls. Apple, GPT, and Gemini transcription modes consistently remove target-language, translated-text, and translated-voice controls.
+
+See the complete [AirTranslate 1.6.0 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.0).
+
 ## What's New in 1.5.1
 
 - **Minimal, consistent interface:** The workspace, sidebar, menu bar, floating captions, transcript library, and Settings now share one restrained system for spacing, icons, surfaces, selection, and hover feedback.
@@ -93,7 +101,7 @@ See the complete [AirTranslate 1.4.1 release notes](https://github.com/himomohi/
 - Apple basic-mode source-language auto-detect is temporarily disabled while language-switch handling is improved.
 - GPT mode with OpenAI Realtime Translation
 - Optional GPT Transcription with `gpt-live-transcribe` for source-only captions
-- Gemini 3.5 Live Translate mode
+- Gemini 3.5 Live Translate mode and optional Gemini 3.5 Transcribe Live source-only mode with automatic spoken-language detection
 - Microphone input stability fixes for duplicate segments and noisy transitions
 - LIVE Translation mode for API-backed translated streams
 - One-click source/target language swap
@@ -112,7 +120,7 @@ AirTranslate separates the quick choice from the detailed setup.
 | Apple Mode | Local-first transcription and translation | Uses Apple Speech for transcription and Apple Translation for the selected language pair. Source-language auto-detect is temporarily disabled while language-switch handling is improved. |
 | GPT Mode | OpenAI Realtime live translation | Streams audio directly to OpenAI Realtime Translation. If no API key is saved, AirTranslate opens the settings modal and focuses the API key field. |
 | GPT Transcription | OpenAI source-only captions | Uses `gpt-live-transcribe` for source-language captions without translation after you choose this optional mode and provide an OpenAI API key. |
-| Gemini Live | Gemini 3.5 Live Translate | Streams audio directly to Gemini Live Translate and shows the returned input and translated transcripts. If no Gemini API key is saved, AirTranslate opens the settings modal and focuses the key field. |
+| Gemini Live | Gemini 3.5 Live Translate or source-only transcription | Choose Gemini 3.5 Live Translate for returned input and translated transcripts, or Gemini 3.5 Transcribe Live for original-only captions with automatic spoken-language detection. Both require your Gemini API key. |
 | Transcribe Only | Source captions without translation | Records source-language captions without running translation. |
 | LIVE Translation | Direct translated stream | Uses the selected API provider's live translation model path when you want the model to produce the translated stream directly. |
 
@@ -120,12 +128,12 @@ GPT/Gemini model details, API key entry, transcript polish, and voice output are
 
 ## Privacy And API Keys
 
-AirTranslate does not ship with a backend account system.
+AirTranslate does not ship with an account system or a developer-operated relay/backend server. This does not mean every mode is offline: optional provider modes send the audio or text needed for the selected feature directly to the corresponding external API.
 
 - Apple Mode uses macOS frameworks and locally managed Apple language assets.
-- OpenAI calls happen only when GPT Mode or the optional GPT Transcription mode is enabled.
-- Gemini calls happen only when Gemini Live mode is enabled.
-- OpenAI and Gemini API keys are never hardcoded, committed, or included in release packages.
+- OpenAI sends happen only when GPT Mode or the optional GPT Transcription mode is enabled; the required audio or text goes directly to OpenAI's API using your OpenAI API key.
+- Gemini sends happen only when Gemini Live Translate or Gemini 3.5 Transcribe Live is enabled; the required audio goes directly to the Google Gemini API using your Gemini API key.
+- OpenAI and Gemini API keys are user-provided, saved in Keychain, and never hardcoded, committed, or included in release packages.
 - Keys are saved in macOS Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
 - Saved transcripts are plain text files on your Mac.
 
@@ -163,7 +171,7 @@ Download the latest open-source build from [GitHub Releases](https://github.com/
 AirTranslate remains fully open-source under the Apache-2.0 License. The DMG is provided only as a convenient macOS installer, while all source code, build scripts, release materials, LICENSE, and NOTICE files remain available in this repository.
 
 - [Download AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [Download AirTranslate-1.5.1.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.5.1/AirTranslate-1.5.1.zip)
+- [Download AirTranslate-1.6.0.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.0/AirTranslate-1.6.0.zip)
 - [Download AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [View version history](Release/VERSION-HISTORY.md)
 

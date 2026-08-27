@@ -47,6 +47,14 @@ AirTranslateは、Macで再生されている音声をリアルタイムで文�
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.6.0の主な変更点
+
+- **Geminiの原文文字起こしと自動言語検出:** 自分のGemini APIキーを追加した場合に、任意の**Gemini 3.5 Transcribe Live**で翻訳なしの原文字幕を使えます。キャプチャ中の話し言葉は自動検出されます。
+- **長時間Geminiセッションの安定化:** finished状態の処理、セッション再開、GoAway再接続推奨への対応、制限付きコンテキスト圧縮、40msオーディオチャンク送信で長いキャプチャ経路を強化しました。
+- **原文専用のレスポンシブ操作:** 最小対応サイズのワークスペースと設定画面でもコントロールを隠さず再配置し、Apple・GPT・Geminiの文字起こしモードでは対象言語・翻訳文・翻訳音声の操作を一貫して表示しません。
+
+詳細は[AirTranslate 1.6.0リリースノート](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.0)をご覧ください。
+
 ## 1.5.1の主な変更点
 
 - **ミニマルで一貫したインターフェース:** メインワークスペース、サイドバー、メニューバー、フローティング字幕、記録ライブラリ、設定で、余白・アイコン・サーフェス・選択・ホバーの控えめなデザインシステムを共有します。
@@ -92,7 +100,7 @@ AirTranslateは、Macで再生されている音声をリアルタイムで文�
 - 内蔵マイク、Bluetooth、AirPodsのマイク入力対応
 - OpenAI Realtime TranslationによるGPTモード
 - 原文字幕用の任意の`gpt-live-transcribe` GPT文字起こしモード
-- Gemini 3.5 Live Translateモード
+- Gemini 3.5 Live Translateモードと、話し言葉を自動検出する原文専用の任意Gemini 3.5 Transcribe Liveモード
 - APIベースの翻訳ストリーム用LIVE翻訳モード
 - Apple標準モードの元言語自動検出は、言語切替の安定性改善のため一時的に無効化
 - マイク入力の安定性改善（重複入力と切替時ノイズの抑制）
@@ -112,7 +120,7 @@ AirTranslateは、すばやい選択と詳細設定を分けています。
 | Apple標準モード | ローカル寄りの文字起こしと翻訳 | Apple Speechで文字起こしし、Apple Translationで選択した言語ペアを翻訳します。元言語の自動検出は、言語切替の安定性改善のため一時的に無効化されています。 |
 | GPTモード | OpenAI Realtimeのライブ翻訳 | 音声をOpenAI Realtime Translationへ直接ストリーミングします。APIキーが保存されていない場合、設定モーダルを開いてAPIキー入力欄にフォーカスします。 |
 | GPT文字起こし | OpenAIの原文字幕 | 任意モードでOpenAI APIキーを指定すると、`gpt-live-transcribe`で翻訳なしの原文字幕を作成します。 |
-| Gemini Live | Gemini 3.5 Live Translate | 音声をGemini Live Translateへ直接ストリーミングし、返された入力/翻訳テキストを表示します。Gemini APIキーが保存されていない場合、設定モーダルを開いてキー入力欄にフォーカスします。 |
+| Gemini Live | Gemini 3.5 Live Translateまたは原文文字起こし | Gemini 3.5 Live Translateでは原文と翻訳を表示し、Gemini 3.5 Transcribe Liveでは話し言葉を自動検出した原文字幕だけを表示します。どちらもユーザー提供のGemini APIキーが必要です。 |
 | 文字起こしのみ | 翻訳なしの原文字幕 | 翻訳を実行せず、原文の記録だけを残します。 |
 | LIVE翻訳 | 翻訳ストリームを直接得たい場合 | 選択したAPIプロバイダーのライブ翻訳モデルが翻訳結果を直接生成する経路を使います。 |
 
@@ -120,12 +128,12 @@ GPT/Geminiモデルの詳細、APIキー入力、記録補正、音声出力は�
 
 ## プライバシーとAPIキー
 
-AirTranslateには独自のバックエンドアカウントシステムはありません。
+AirTranslateにはアカウントシステムや開発者運用の中継・バックエンドサーバーはありません。ただし、すべてのモードがオフラインという意味ではありません。任意のプロバイダーモードは、選択した機能に必要な音声またはテキストを対応する外部APIへ直接送信します。
 
 - Apple標準モードはmacOSフレームワークとApple言語アセットを使用します。
-- OpenAIへのリクエストはGPTモードまたは任意のGPT文字起こしモードを有効にした場合のみ発生します。
-- GeminiへのリクエストはGemini Liveモードを有効にした場合のみ発生します。
-- OpenAIとGeminiのAPIキーはアプリに埋め込まず、コミットせず、リリースパッケージにも含めません。
+- GPTモードまたは任意のGPT文字起こしモードを有効にした場合のみ、必要な音声またはテキストがユーザーのOpenAI APIキーでOpenAI APIへ直接送信されます。
+- Gemini Live TranslateまたはGemini 3.5 Transcribe Liveを有効にした場合のみ、必要な音声がユーザーのGemini APIキーでGoogle Gemini APIへ直接送信されます。
+- OpenAIとGeminiのAPIキーはユーザーが提供してKeychainに保存し、アプリに埋め込まず、コミットせず、リリースパッケージにも含めません。
 - APIキーは`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`でmacOS Keychainに保存します。
 - 保存済み記録はユーザーのMac上のプレーンテキストファイルです。
 
@@ -161,7 +169,7 @@ macOSのプライバシー権限を変更した後は、アプリを終了して
 最新のオープンソースビルドは[GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest)からダウンロードできます。DMGが最も簡単なインストール方法で、ZIPも軽量な配布形式として引き続き利用できます。
 
 - [AirTranslate.dmgをダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.5.1.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.5.1/AirTranslate-1.5.1.zip)
+- [AirTranslate-1.6.0.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.6.0/AirTranslate-1.6.0.zip)
 - [AirTranslate.dmg.sha256をダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [バージョン履歴を見る](Release/VERSION-HISTORY.md)
 
