@@ -664,6 +664,30 @@ enum AppText {
         english: "Open Privacy Settings",
         korean: "개인정보 보호 설정 열기"
     )
+    static let openAPIKeySettings = localized(
+        english: "Open API Key Settings",
+        korean: "API 키 설정 열기",
+        japanese: "APIキー設定を開く",
+        chineseSimplified: "打开 API key 设置"
+    )
+    static let retry = localized(
+        english: "Retry",
+        korean: "다시 시도",
+        japanese: "再試行",
+        chineseSimplified: "重试"
+    )
+    static let dismiss = localized(
+        english: "Dismiss",
+        korean: "닫기",
+        japanese: "閉じる",
+        chineseSimplified: "关闭"
+    )
+    static let dismissStartFailure = localized(
+        english: "Dismiss start failure",
+        korean: "시작 실패 안내 닫기",
+        japanese: "開始失敗の案内を閉じる",
+        chineseSimplified: "关闭启动失败提示"
+    )
     static let permissions = localized(english: "Permissions", korean: "권한")
     static let permissionsHelp = localized(
         english: "AirTranslate needs Screen Recording, System Audio Recording, and Speech Recognition permission. After changing privacy settings, quit and relaunch the app.",
@@ -931,12 +955,12 @@ enum AppText {
         korean: "선택한 음성 인식기를 사용할 수 없습니다."
     )
     static let screenRecordingNotGranted = localized(
-        english: "Screen Recording permission is not active for this signed AirTranslate app. Grant it once, then quit and relaunch AirTranslate.",
-        korean: "서명된 AirTranslate 앱에 화면 기록 권한이 활성화되어 있지 않습니다. 한 번 허용한 뒤 AirTranslate를 종료하고 다시 실행하세요."
+        english: "macOS does not recognize Screen Recording access for this AirTranslate build. If it is already enabled, keep only the current app, toggle access once, then quit and relaunch AirTranslate.",
+        korean: "macOS가 현재 AirTranslate 빌드의 화면 기록 권한을 인식하지 못합니다. 이미 허용했다면 현재 앱만 남기고 권한을 한 번 껐다 켠 뒤 AirTranslate를 종료하고 다시 실행하세요."
     )
     static let microphoneNotGranted = localized(
-        english: "Microphone permission is not active for this signed AirTranslate app. Grant it once, then quit and relaunch AirTranslate.",
-        korean: "서명된 AirTranslate 앱에 마이크 권한이 활성화되어 있지 않습니다. 한 번 허용한 뒤 AirTranslate를 종료하고 다시 실행하세요."
+        english: "macOS does not recognize Microphone access for this AirTranslate build. If it is already enabled, keep only the current app, toggle access once, then quit and relaunch AirTranslate.",
+        korean: "macOS가 현재 AirTranslate 빌드의 마이크 권한을 인식하지 못합니다. 이미 허용했다면 현재 앱만 남기고 권한을 한 번 껐다 켠 뒤 AirTranslate를 종료하고 다시 실행하세요."
     )
     static let microphoneUnavailable = localized(
         english: "The microphone input could not be started.",

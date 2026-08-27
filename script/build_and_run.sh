@@ -59,7 +59,22 @@ else
 fi
 
 open_app() {
-  /usr/bin/open -n "$APP_BUNDLE"
+  /usr/bin/nohup "$APP_BINARY" >"$DIST_DIR/$APP_NAME.log" 2>&1 &
+}
+
+verify_running_app() {
+  local pid
+  local command
+  pid="$(/usr/bin/pgrep -n -x "$APP_NAME" || true)"
+  [[ -n "$pid" ]] || {
+    echo "$APP_NAME did not start" >&2
+    return 1
+  }
+  command="$(/bin/ps -p "$pid" -o command=)"
+  [[ "$command" == "$APP_BINARY" ]] || {
+    echo "Expected $APP_BINARY, but PID $pid is running $command" >&2
+    return 1
+  }
 }
 
 case "$MODE" in
@@ -87,7 +102,7 @@ case "$MODE" in
   --verify|verify)
     open_app
     sleep 1
-    pgrep -x "$APP_NAME" >/dev/null
+    verify_running_app
     ;;
   *)
     echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--reset-permissions]" >&2

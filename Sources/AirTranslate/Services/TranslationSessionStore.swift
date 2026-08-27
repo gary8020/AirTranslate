@@ -4,7 +4,7 @@ import AirTranslateCore
 import Foundation
 import Observation
 
-enum PrivacySettingsPane {
+enum PrivacySettingsPane: Equatable {
     case screenRecording
     case systemAudioRecording
     case microphone
@@ -19,6 +19,45 @@ enum PrivacySettingsPane {
             "Privacy_Microphone"
         case .speechRecognition:
             "Privacy_SpeechRecognition"
+        }
+    }
+}
+
+enum CaptureStartRecoveryAction: Equatable {
+    case apiKeys
+    case privacy(PrivacySettingsPane)
+    case retry
+
+    static func forFailure(_ error: Error, audioInputSource _: AudioInputSource) -> Self {
+        if let captureError = error as? CaptureError {
+            switch captureError {
+            case .screenRecordingNotGranted:
+                return .privacy(.screenRecording)
+            case .microphoneNotGranted:
+                return .privacy(.microphone)
+            case .microphoneUnavailable, .microphoneInterrupted, .microphoneRuntimeFailure, .noDisplay:
+                return .retry
+            }
+        }
+        if let speechError = error as? SpeechError {
+            switch speechError {
+            case .notAuthorized:
+                return .privacy(.speechRecognition)
+            case .recognizerUnavailable:
+                return .retry
+            }
+        }
+        return .retry
+    }
+
+    static func forReadiness(_ readiness: StartReadinessAssessment) -> Self? {
+        switch readiness.issue {
+        case .openAIAPIKeyMissing, .geminiAPIKeyMissing:
+            .apiKeys
+        case .localAssetsChecking, .localAssetsUnavailable:
+            .retry
+        case .localAssetsDownloadRequired, nil:
+            nil
         }
     }
 }
@@ -490,6 +529,8 @@ final class TranslationSessionStore {
     }
     var microphoneInputDevices = MicrophoneDeviceCatalog.availableInputDevices()
     var statusMessage = AppText.ready
+    var captureStartFailureMessage: String?
+    var captureStartRecoveryAction: CaptureStartRecoveryAction?
     var toastMessage: String?
     var toastSequence = 0
     var floatingNoticeText: String?
@@ -744,13 +785,19 @@ final class TranslationSessionStore {
         guard readiness.canStart else {
             if readiness.issue == .localAssetsDownloadRequired,
                let model = requiredLocalModelForStart {
+                dismissCaptureStartFailure()
                 downloadRequiredModelAssetsThenStart(model)
                 return
             }
-            statusMessage = statusMessage(for: readiness)
+            presentCaptureStartFailure(
+                statusMessage(for: readiness),
+                recoveryAction: recoveryAction(for: readiness)
+            )
             return
         }
 
+        captureStartFailureMessage = nil
+        captureStartRecoveryAction = nil
         invalidateCaptureStartAttempt()
         let configuration = currentStartConfiguration()
         let generation = pipelineLifecycle.beginStart(configuration: configuration)
@@ -824,6 +871,8 @@ final class TranslationSessionStore {
                 resetLiveSessionState(clearsVisibleLines: true)
                 isRunning = true
                 isStarting = false
+                captureStartFailureMessage = nil
+                captureStartRecoveryAction = nil
                 statusMessage = AppText.listeningForSpeech(from: configuration.audioInputSource)
                 warmTranslationSession()
             } catch let error as CancellationError {
@@ -942,7 +991,10 @@ final class TranslationSessionStore {
         isRunning = false
         stopCaptioners()
         await stopCapture()
-        statusMessage = AppText.startFailed(error.localizedDescription)
+        presentCaptureStartFailure(
+            AppText.startFailed(error.localizedDescription),
+            recoveryAction: .retry
+        )
     }
 
     private func stopCaptionersIfOwned(by generation: UInt64) {
@@ -1031,7 +1083,10 @@ final class TranslationSessionStore {
         isRunning = false
         stopCaptioners()
         await stopCapture()
-        statusMessage = AppText.startFailed(error.localizedDescription)
+        presentCaptureStartFailure(
+            AppText.startFailed(error.localizedDescription),
+            recoveryAction: .forFailure(error, audioInputSource: configuration.audioInputSource)
+        )
     }
 
     func startReadinessAssessment() -> StartReadinessAssessment {
@@ -1072,6 +1127,24 @@ final class TranslationSessionStore {
         case .localAssetsUnavailable(let detail):
             return AppText.startBlockedLocalAssetsUnavailable(detail)
         }
+    }
+
+    private func recoveryAction(for readiness: StartReadinessAssessment) -> CaptureStartRecoveryAction? {
+        CaptureStartRecoveryAction.forReadiness(readiness)
+    }
+
+    func dismissCaptureStartFailure() {
+        captureStartFailureMessage = nil
+        captureStartRecoveryAction = nil
+    }
+
+    private func presentCaptureStartFailure(
+        _ message: String,
+        recoveryAction: CaptureStartRecoveryAction?
+    ) {
+        statusMessage = message
+        captureStartFailureMessage = message
+        captureStartRecoveryAction = recoveryAction
     }
 
     func pause() {
@@ -1598,7 +1671,10 @@ final class TranslationSessionStore {
                     let readiness = self.startReadinessAssessment()
                     guard readiness.canStart else {
                         self.isStarting = false
-                        self.statusMessage = self.statusMessage(for: readiness)
+                        self.presentCaptureStartFailure(
+                            self.statusMessage(for: readiness),
+                            recoveryAction: self.recoveryAction(for: readiness)
+                        )
                         return
                     }
 
@@ -1617,7 +1693,10 @@ final class TranslationSessionStore {
                         state: .failed,
                         detail: error.localizedDescription
                     )
-                    self.statusMessage = AppText.startFailed(error.localizedDescription)
+                    self.presentCaptureStartFailure(
+                        AppText.startFailed(error.localizedDescription),
+                        recoveryAction: .retry
+                    )
                 }
             }
         }

@@ -47,6 +47,15 @@ AirTranslateは、Macで再生されている音声をリアルタイムで文�
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.6.1の主な変更点
+
+- **Gemini Liveの開始を安定化:** 上部の開始ボタンから、選択したGemini Liveモードでキャプチャを開始できます。
+- **キャプチャ操作のCPUループを回避:** ロックされたセグメント操作は見た目を保ったまま、開始中にAttributeGraphのCPUループを引き起こし得るmacOSの無効状態フォーカス経路を使いません。
+- **開始失敗時の直接的な回復操作:** 開始失敗は一時的なオーバーレイとして消えず、メインウィンドウに残り、APIキー設定、macOSのプライバシー設定、または再試行を直接選べます。
+- **現在のビルドに対応した権限案内:** 権限案内は現在署名されたAirTranslateビルドを識別します。macOSが認識しない場合は現在のアプリだけを残し、該当する権限だけを一度更新して終了・再起動してください。通常の更新にTCCリセットは不要です。
+
+詳細は[AirTranslate 1.6.1リリースノート](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.1)をご覧ください。
+
 ## 1.6.0の主な変更点
 
 - **Geminiの原文文字起こしと自動言語検出:** 自分のGemini APIキーを追加した場合に、任意の**Gemini 3.5 Transcribe Live**で翻訳なしの原文字幕を使えます。キャプチャ中の話し言葉は自動検出されます。
@@ -162,14 +171,14 @@ AirTranslateは、キャプチャと文字起こしに必要な権限だけを�
 
 ScreenCaptureKitのシステム音声キャプチャ経路を使うため、画面収録権限が必要です。AirTranslateは画面フレームを録画ファイルとして保存しません。
 
-macOSのプライバシー権限を変更した後は、アプリを終了して再起動すると新しい権限状態が安定して反映されます。
+macOSは現在署名されたAirTranslateアプリのビルドに権限を関連付けます。すでに有効な権限をアプリが認識しない場合は、現在のアプリだけを残してシステム設定で該当する権限だけを一度オフ・オンにし、アプリを終了して再起動してください。通常の更新でTCCをリセットする必要はありません。
 
 ## ダウンロード
 
 最新のオープンソースビルドは[GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest)からダウンロードできます。DMGが最も簡単なインストール方法で、ZIPも軽量な配布形式として引き続き利用できます。
 
 - [AirTranslate.dmgをダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.6.0.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.6.0/AirTranslate-1.6.0.zip)
+- [AirTranslate-1.6.1.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.6.1/AirTranslate-1.6.1.zip)
 - [AirTranslate.dmg.sha256をダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [バージョン履歴を見る](Release/VERSION-HISTORY.md)
 

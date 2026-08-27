@@ -1,5 +1,15 @@
 # AirTranslate Version History
 
+## 1.6.1 - 2026-08-27
+
+### Fixed
+
+- The top Start control now begins Gemini Live capture with the selected Gemini mode.
+- Segmented capture controls no longer use AppKit's dynamic disabled state during startup, avoiding its focus-navigation/AttributeGraph CPU loop while retaining the visible locked state.
+- Start failures now remain in the main window with an appropriate API-key Settings, macOS Privacy Settings, or retry action instead of disappearing as a transient overlay.
+- Local launch verification checks the exact executable inside the current `dist/AirTranslate.app`, so an older same-bundle-ID copy cannot be reported as the active build.
+- Permission guidance identifies the current signed AirTranslate build and asks for one targeted Settings refresh only when macOS does not recognize it; routine TCC resets are not required.
+
 ## 1.6.0 - 2026-08-27
 
 ### Added

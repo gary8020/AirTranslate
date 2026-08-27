@@ -90,18 +90,18 @@ jobs:
       - name: Verify disk images and checksums
         run: |
           hdiutil verify Release/product/AirTranslate.dmg
-          hdiutil verify Release/product/AirTranslate-1.6.0.dmg
+          hdiutil verify Release/product/AirTranslate-1.6.1.dmg
           cd Release/product
           shasum -a 256 -c AirTranslate.dmg.sha256
-          shasum -a 256 -c AirTranslate-1.6.0.dmg.sha256
+          shasum -a 256 -c AirTranslate-1.6.1.dmg.sha256
 
       - name: Verify bundle and archive contents
         run: |
           app="Release/product/AirTranslate.app"
           info="$app/Contents/Info.plist"
           codesign --verify --deep --strict --verbose=2 "$app"
-          test "$(plutil -extract CFBundleShortVersionString raw -o - "$info")" = "1.6.0"
-          test "$(plutil -extract CFBundleVersion raw -o - "$info")" = "160"
+          test "$(plutil -extract CFBundleShortVersionString raw -o - "$info")" = "1.6.1"
+          test "$(plutil -extract CFBundleVersion raw -o - "$info")" = "161"
 
           codesign -d --entitlements :- "$app" 2>&1 \
             | sed -n '/^<?xml/,/<\/plist>/p' \
@@ -117,8 +117,8 @@ jobs:
           mount_point="$scan_root/mount"
           trap 'hdiutil detach "$mount_point" >/dev/null 2>&1 || true; rm -rf "$scan_root"' EXIT
           mkdir -p "$scan_root/build-zip" "$scan_root/stable-zip" "$mount_point"
-          ditto -x -k Release/product/AirTranslate-1.6.0-160.zip "$scan_root/build-zip"
-          ditto -x -k Release/product/AirTranslate-1.6.0.zip "$scan_root/stable-zip"
+          ditto -x -k Release/product/AirTranslate-1.6.1-161.zip "$scan_root/build-zip"
+          ditto -x -k Release/product/AirTranslate-1.6.1.zip "$scan_root/stable-zip"
           hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" Release/product/AirTranslate.dmg
 
           for root in "$scan_root/build-zip" "$scan_root/stable-zip" "$mount_point"; do
@@ -129,7 +129,7 @@ jobs:
           done
 
           diff -rq "$scan_root/build-zip/AirTranslate.app" "$scan_root/stable-zip/AirTranslate.app"
-          cmp Release/product/AirTranslate.dmg Release/product/AirTranslate-1.6.0.dmg
+          cmp Release/product/AirTranslate.dmg Release/product/AirTranslate-1.6.1.dmg
 
           if find "$scan_root/build-zip" "$scan_root/stable-zip" "$mount_point" \
             -type f \( -name '.env' -o -name '*.p12' -o -name '*.mobileprovision' \
@@ -159,13 +159,13 @@ jobs:
       - name: Upload verified release set
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: AirTranslate-1.6.0-160-release-set
+          name: AirTranslate-1.6.1-161-release-set
           path: |
-            Release/product/AirTranslate-1.6.0-160.zip
-            Release/product/AirTranslate-1.6.0.zip
+            Release/product/AirTranslate-1.6.1-161.zip
+            Release/product/AirTranslate-1.6.1.zip
             Release/product/AirTranslate.dmg
             Release/product/AirTranslate.dmg.sha256
-            Release/product/AirTranslate-1.6.0.dmg
-            Release/product/AirTranslate-1.6.0.dmg.sha256
+            Release/product/AirTranslate-1.6.1.dmg
+            Release/product/AirTranslate-1.6.1.dmg.sha256
           if-no-files-found: error
           retention-days: 7

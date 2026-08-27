@@ -47,6 +47,15 @@ AirTranslate는 Mac에서 재생되는 소리를 실시간으로 기록하고 �
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.6.1 주요 변경사항
+
+- **Gemini Live 시작 안정화:** 상단 시작 버튼이 선택한 Gemini Live 모드로 캡처를 시작합니다.
+- **캡처 제어의 CPU 루프 방지:** 잠긴 세그먼트 제어는 보이는 상태를 유지하면서도 시작 중 AttributeGraph CPU 루프를 유발할 수 있는 macOS 비활성화 상태 포커스 경로를 사용하지 않습니다.
+- **조치 가능한 시작 실패 안내:** 시작 실패가 일시적인 오버레이로 사라지지 않고 기본 창에 남아 API 키 설정, macOS 개인정보 보호 설정 또는 재시도 동작을 바로 제공합니다.
+- **현재 빌드 권한 안내:** 권한 안내가 현재 서명된 AirTranslate 빌드를 식별합니다. macOS가 이를 인식하지 못할 때는 현재 앱만 남기고 해당 권한만 한 번 새로 고친 뒤 종료·재실행하면 되며, 일반 업데이트에 TCC 초기화는 필요하지 않습니다.
+
+전체 내용은 [AirTranslate 1.6.1 릴리즈 노트](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.1)에서 확인할 수 있습니다.
+
 ## 1.6.0 주요 변경사항
 
 - **Gemini 원문 전사와 자동 언어 감지:** Gemini API 키를 직접 추가한 뒤 선택형 **Gemini 3.5 Transcribe Live**로 번역 없는 원문 자막을 만들 수 있으며, 캡처 중 말하는 언어를 자동 감지합니다.
@@ -162,7 +171,7 @@ AirTranslate는 캡처와 전사 흐름에 필요한 권한만 요청합니다.
 
 ScreenCaptureKit의 시스템 오디오 캡처 경로 때문에 화면 기록 권한이 필요합니다. AirTranslate는 화면 프레임을 녹화 파일로 저장하지 않습니다.
 
-macOS 개인정보 보호 권한을 바꾼 뒤에는 앱을 종료하고 다시 실행해야 새 권한 상태가 안정적으로 반영됩니다.
+macOS는 현재 서명된 AirTranslate 앱 빌드에 권한을 연결합니다. 이미 켜 둔 권한을 앱이 인식하지 못하면 현재 앱만 남기고 시스템 설정에서 해당 권한만 한 번 껐다 켠 뒤 앱을 종료하고 다시 실행하세요. 일반 업데이트에 `tccutil` 초기화는 필요하지 않습니다.
 
 ## 다운로드
 
@@ -171,7 +180,7 @@ macOS 개인정보 보호 권한을 바꾼 뒤에는 앱을 종료하고 다시 
 AirTranslate는 Apache-2.0 라이선스의 오픈소스 프로젝트입니다. DMG 파일은 macOS 사용자가 더 쉽게 설치할 수 있도록 추가로 제공되는 설치 패키지이며, 소스코드 공개를 대체하는 것이 아닙니다. 소스코드, 빌드 스크립트, 릴리즈 자료, LICENSE, NOTICE 파일은 모두 이 저장소에 공개되어 있습니다.
 
 - [AirTranslate.dmg 다운로드](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.6.0.zip 다운로드](https://github.com/himomohi/AirTranslate/releases/download/v1.6.0/AirTranslate-1.6.0.zip)
+- [AirTranslate-1.6.1.zip 다운로드](https://github.com/himomohi/AirTranslate/releases/download/v1.6.1/AirTranslate-1.6.1.zip)
 - [AirTranslate.dmg.sha256 다운로드](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [버전 히스토리 보기](Release/VERSION-HISTORY.md)
 

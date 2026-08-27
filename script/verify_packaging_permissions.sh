@@ -99,6 +99,9 @@ fi
 
 require_pattern 'tccutil reset Microphone "$BUNDLE_ID"' "$LOCAL_BUILD_SCRIPT"
 require_pattern 'Microphone (when selected)' "$LOCAL_BUILD_SCRIPT"
+require_pattern '/usr/bin/nohup "$APP_BINARY"' "$LOCAL_BUILD_SCRIPT"
+require_pattern 'verify_running_app' "$LOCAL_BUILD_SCRIPT"
+require_pattern 'Expected $APP_BINARY' "$LOCAL_BUILD_SCRIPT"
 
 for mode in local release; do
   plist_path="$TEMP_DIR/$mode-Info.plist"

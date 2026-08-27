@@ -2,6 +2,16 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.6.1 - 2026-08-27
+
+### Fixed
+
+- Fixed the top Start control so it begins a Gemini Live capture using the selected Gemini mode instead of being blocked by the workspace state.
+- Avoided the macOS SwiftUI/AppKit `NSSegmentedCell` disabled-state focus cycle that could drive AttributeGraph CPU use near 100% while a capture starts; locked segmented controls now keep their visible state while ignoring interaction.
+- Replaced transient start-error overlays with an in-window recovery message that offers the relevant API-key Settings, macOS Privacy Settings, or retry action.
+- Made local verification confirm that the current `dist/AirTranslate.app` executable is the process that launched, preventing a stale 1.5.1 copy with the same bundle identifier from being mistaken for the current build.
+- Clarified privacy guidance for the current signed app build: keep the active copy, refresh the affected macOS permission once when necessary, then quit and relaunch instead of routinely resetting all TCC grants.
+
 ## 1.6.0 - 2026-08-27
 
 ### Added

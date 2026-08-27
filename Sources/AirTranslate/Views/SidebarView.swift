@@ -84,16 +84,22 @@ struct SidebarView: View {
                     title: AppText.localized(english: "Audio", korean: "오디오", japanese: "オーディオ", chineseSimplified: "音频"),
                     systemImage: "mic"
                 ) {
-                    Picker(AppText.audioInputSource, selection: audioInputSourceBinding) {
-                        ForEach(AudioInputSource.allCases) { source in
-                            Text(source.title).tag(source)
+                    if segmentedControlPresentation == .lockedSummary {
+                        SidebarLockedSegmentedValue(
+                            title: AppText.audioInputSource,
+                            value: session.audioInputSource.title
+                        )
+                    } else {
+                        Picker(AppText.audioInputSource, selection: audioInputSourceBinding) {
+                            ForEach(AudioInputSource.allCases) { source in
+                                Text(source.title).tag(source)
+                            }
                         }
+                        .pickerStyle(.segmented)
+                        .labelsHidden()
+                        .controlSize(.regular)
+                        .accessibilityLabel(AppText.audioInputSource)
                     }
-                    .pickerStyle(.segmented)
-                    .labelsHidden()
-                    .controlSize(.regular)
-                    .disabled(isSessionConfigurationLocked)
-                    .accessibilityLabel(AppText.audioInputSource)
                 }
 
                 if session.audioInputSource == .microphone {
@@ -121,6 +127,11 @@ struct SidebarView: View {
                             isDisabled: isSessionConfigurationLocked,
                             action: useTranslationModeIfConfigurationUnlocked
                         )
+                    } else if segmentedControlPresentation == .lockedSummary {
+                        SidebarLockedSegmentedValue(
+                            title: AppText.outputMode,
+                            value: session.liveOutputMode.title
+                        )
                     } else {
                         Picker(AppText.outputMode, selection: liveOutputModeBinding) {
                             ForEach(LiveOutputMode.allCases) { mode in
@@ -130,7 +141,6 @@ struct SidebarView: View {
                         .pickerStyle(.segmented)
                         .labelsHidden()
                         .controlSize(.regular)
-                        .disabled(isSessionConfigurationLocked)
                         .accessibilityLabel(AppText.outputMode)
                     }
                 }
@@ -220,6 +230,13 @@ struct SidebarView: View {
 
     private var isSessionConfigurationLocked: Bool {
         SidebarSessionConfigurationAccess.isLocked(
+            isRunning: session.isRunning,
+            isStarting: session.isStarting
+        )
+    }
+
+    private var segmentedControlPresentation: SidebarSegmentedControlPresentation {
+        SidebarSessionConfigurationAccess.segmentedControlPresentation(
             isRunning: session.isRunning,
             isStarting: session.isStarting
         )
@@ -338,6 +355,18 @@ enum SidebarSessionConfigurationAccess {
     static func isLocked(isRunning: Bool, isStarting: Bool) -> Bool {
         isRunning || isStarting
     }
+
+    static func segmentedControlPresentation(
+        isRunning: Bool,
+        isStarting: Bool
+    ) -> SidebarSegmentedControlPresentation {
+        isLocked(isRunning: isRunning, isStarting: isStarting) ? .lockedSummary : .picker
+    }
+}
+
+enum SidebarSegmentedControlPresentation: Equatable {
+    case picker
+    case lockedSummary
 }
 
 private enum SettingsSidebarCopy {
@@ -353,6 +382,37 @@ private enum SettingsSidebarCopy {
         japanese: "音量",
         chineseSimplified: "音量"
     )
+    static let lockedDuringCapture = AppText.localized(
+        english: "Locked during capture",
+        korean: "캡처 중 잠김",
+        japanese: "キャプチャ中はロック中",
+        chineseSimplified: "采集期间已锁定"
+    )
+}
+
+private struct SidebarLockedSegmentedValue: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "lock.fill")
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+            Text(SettingsSidebarCopy.lockedDuringCapture)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title), \(SettingsSidebarCopy.lockedDuringCapture)")
+        .accessibilityValue(value)
+    }
 }
 
 private enum ProcessingEngine: String, CaseIterable, Identifiable {

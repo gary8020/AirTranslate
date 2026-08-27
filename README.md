@@ -47,6 +47,15 @@ The default workflow uses Apple frameworks. GPT Realtime and Gemini Live Transla
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## What's New in 1.6.1
+
+- **Gemini Live Start is reliable:** The top Start control now begins capture in the selected Gemini Live mode.
+- **Responsive capture controls:** Locked segmented controls keep their visible state without using the macOS disabled-state focus path that could cause an AttributeGraph CPU loop during startup.
+- **Actionable start recovery:** A start failure stays in the main window with a direct API-key Settings, macOS Privacy Settings, or retry action instead of disappearing in a transient overlay.
+- **Current-build permission guidance:** Permission help identifies the current signed AirTranslate build. When macOS does not recognize it, keep the active copy, refresh only the affected permission once, then quit and relaunch; routine TCC resets are not needed.
+
+See the complete [AirTranslate 1.6.1 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.1).
+
 ## What's New in 1.6.0
 
 - **Gemini source-only transcription with automatic language detection:** Choose optional **Gemini 3.5 Transcribe Live** for original-only captions. Gemini detects the spoken language during capture after you add your own Gemini API key.
@@ -162,7 +171,7 @@ AirTranslate asks for the permissions required by its capture and transcription 
 
 Screen Recording is required because ScreenCaptureKit provides the system-audio capture path. AirTranslate does not save screen frames as recordings.
 
-After changing macOS privacy permissions, quit and relaunch the app so the signed app bundle receives the new authorization state.
+macOS authorizes the currently signed AirTranslate app build. If a permission is already enabled but unavailable, keep only the current app copy, toggle that permission once in System Settings, then quit and relaunch. Routine `tccutil` resets are not needed for normal updates.
 
 ## Download
 
@@ -171,7 +180,7 @@ Download the latest open-source build from [GitHub Releases](https://github.com/
 AirTranslate remains fully open-source under the Apache-2.0 License. The DMG is provided only as a convenient macOS installer, while all source code, build scripts, release materials, LICENSE, and NOTICE files remain available in this repository.
 
 - [Download AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [Download AirTranslate-1.6.0.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.0/AirTranslate-1.6.0.zip)
+- [Download AirTranslate-1.6.1.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.1/AirTranslate-1.6.1.zip)
 - [Download AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [View version history](Release/VERSION-HISTORY.md)
 

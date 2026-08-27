@@ -75,4 +75,26 @@ struct SessionConfigurationUIStateTests {
             )
         )
     }
+
+    @Test
+    func sidebarSegmentedControlsUsePassiveSummaryWhileConfigurationIsLocked() {
+        #expect(
+            SidebarSessionConfigurationAccess.segmentedControlPresentation(
+                isRunning: false,
+                isStarting: false
+            ) == .picker
+        )
+        #expect(
+            SidebarSessionConfigurationAccess.segmentedControlPresentation(
+                isRunning: false,
+                isStarting: true
+            ) == .lockedSummary
+        )
+        #expect(
+            SidebarSessionConfigurationAccess.segmentedControlPresentation(
+                isRunning: true,
+                isStarting: false
+            ) == .lockedSummary
+        )
+    }
 }

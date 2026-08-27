@@ -3,26 +3,43 @@ import SwiftUI
 struct ContentView: View {
     @Bindable var session: TranslationSessionStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.openSettings) private var openSettings
     @State private var isLibraryPresented = false
     @State private var isFloatingCaptionVisible = FloatingCaptionWindowController.isOpen
 
     var body: some View {
         ZStack(alignment: .top) {
-            NavigationSplitView {
-                SidebarView(session: session)
-                    .navigationSplitViewColumnWidth(
-                        min: AirTranslateDesign.sidebarMinimum,
-                        ideal: AirTranslateDesign.sidebarIdeal,
-                        max: AirTranslateDesign.sidebarMaximum
+            VStack(spacing: 0) {
+                if let failureMessage = session.captureStartFailureMessage {
+                    CaptureStartFailureView(
+                        message: failureMessage,
+                        recoveryAction: session.captureStartRecoveryAction,
+                        recover: recoverFromCaptureStartFailure,
+                        dismiss: session.dismissCaptureStartFailure
                     )
-            } detail: {
-                CaptionBoardView(session: session)
-            }
-
-            if let toastMessage = session.toastMessage {
-                ToastMessageView(message: toastMessage)
-                    .padding(.top, 18)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 10)
                     .transition(.move(edge: .top).combined(with: .opacity))
+                }
+
+                ZStack(alignment: .top) {
+                    NavigationSplitView {
+                        SidebarView(session: session)
+                            .navigationSplitViewColumnWidth(
+                                min: AirTranslateDesign.sidebarMinimum,
+                                ideal: AirTranslateDesign.sidebarIdeal,
+                                max: AirTranslateDesign.sidebarMaximum
+                            )
+                    } detail: {
+                        CaptionBoardView(session: session)
+                    }
+
+                    if let toastMessage = session.toastMessage {
+                        ToastMessageView(message: toastMessage)
+                            .padding(.top, 18)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
             }
         }
         .toolbar {
@@ -127,12 +144,12 @@ struct ContentView: View {
 
     private var captureStateDescription: String {
         if session.isStarting {
-            return AppText.startingCapture(for: session.audioInputSource)
+            return session.statusMessage
         }
         if session.isRunning {
             return session.isPaused ? AppText.paused : AppText.listening
         }
-        return AppText.ready
+        return session.statusMessage
     }
 
     private var captureButtonSystemImage: String {
@@ -143,6 +160,18 @@ struct ContentView: View {
         if session.isRunning || session.isStarting {
             session.stop()
         } else {
+            session.start()
+        }
+    }
+
+    private func recoverFromCaptureStartFailure(_ action: CaptureStartRecoveryAction) {
+        switch action {
+        case .apiKeys:
+            session.requestAPIKeySettings()
+            openSettings()
+        case .privacy(let pane):
+            session.openPrivacySettings(pane)
+        case .retry:
             session.start()
         }
     }
@@ -171,6 +200,67 @@ struct ContentView: View {
                 }
             }
         )
+    }
+}
+
+private struct CaptureStartFailureView: View {
+    let message: String
+    let recoveryAction: CaptureStartRecoveryAction?
+    let recover: (CaptureStartRecoveryAction) -> Void
+    let dismiss: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .foregroundStyle(Color.orange)
+                .accessibilityHidden(true)
+
+            Text(message)
+                .font(.callout.weight(.semibold))
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
+
+            if let recoveryAction {
+                Button(actionTitle(for: recoveryAction)) {
+                    recover(recoveryAction)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+            }
+
+            Button(action: dismiss) {
+                Image(systemName: "xmark")
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(AppText.dismissStartFailure)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: 680)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous)
+                .strokeBorder(Color.orange.opacity(0.55))
+        }
+        .shadow(color: .black.opacity(0.14), radius: 12, y: 5)
+        .accessibilityElement(children: .contain)
+        .onAppear {
+            AccessibilityNotification.Announcement(message).post()
+        }
+        .onChange(of: message) { _, newValue in
+            AccessibilityNotification.Announcement(newValue).post()
+        }
+    }
+
+    private func actionTitle(for action: CaptureStartRecoveryAction) -> String {
+        switch action {
+        case .apiKeys:
+            AppText.openAPIKeySettings
+        case .privacy:
+            AppText.openPrivacySettings
+        case .retry:
+            AppText.retry
+        }
     }
 }
 

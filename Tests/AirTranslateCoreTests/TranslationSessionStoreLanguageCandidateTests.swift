@@ -749,6 +749,45 @@ struct TranslationSessionStoreLanguageCandidateTests {
     }
 
     @Test
+    func captureStartFailuresChooseActionableRecovery() {
+        #expect(
+            CaptureStartRecoveryAction.forFailure(
+                CaptureError.screenRecordingNotGranted,
+                audioInputSource: .systemAudio
+            ) == .privacy(.screenRecording)
+        )
+        #expect(
+            CaptureStartRecoveryAction.forFailure(
+                CaptureError.microphoneNotGranted,
+                audioInputSource: .microphone
+            ) == .privacy(.microphone)
+        )
+        #expect(
+            CaptureStartRecoveryAction.forFailure(
+                SpeechError.notAuthorized,
+                audioInputSource: .microphone
+            ) == .privacy(.speechRecognition)
+        )
+        #expect(
+            CaptureStartRecoveryAction.forFailure(
+                CaptureError.noDisplay,
+                audioInputSource: .systemAudio
+            ) == .retry
+        )
+        #expect(
+            CaptureStartRecoveryAction.forReadiness(
+                StartReadinessPolicy.assess(
+                    requiresOpenAIAPIKey: true,
+                    hasOpenAIAPIKey: false,
+                    requiresGeminiAPIKey: false,
+                    hasGeminiAPIKey: false,
+                    requiredLocalModelAvailability: nil
+                )
+            ) == .apiKeys
+        )
+    }
+
+    @Test
     @MainActor
     func startDownloadsRequiredAssetsWithoutClearingVisibleTranscript() async {
         let downloadProbe = ModelAssetDownloadProbe()

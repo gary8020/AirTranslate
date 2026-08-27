@@ -47,6 +47,15 @@ AirTranslate 可以捕获 Mac 正在播放的音频，实时转写并翻译，�
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.6.1 主要更新
+
+- **Gemini Live 启动更可靠:** 顶部“开始”按钮现在会以所选 Gemini Live 模式开始采集。
+- **避免采集控件的 CPU 循环:** 已锁定的分段控件会保留可见状态，但不会走 macOS 的禁用状态焦点路径，以避免启动时可能触发的 AttributeGraph CPU 循环。
+- **可直接操作的启动恢复:** 启动失败不会以瞬时覆盖层消失，而是保留在主窗口中，并直接提供 API key 设置、macOS 隐私设置或重试操作。
+- **面向当前构建的权限说明:** 权限帮助会识别当前已签名的 AirTranslate 构建。如果 macOS 未识别它，请只保留当前应用副本、仅刷新一次受影响的权限，然后退出并重新启动；常规更新无需重置 TCC。
+
+完整内容请参阅 [AirTranslate 1.6.1 发布说明](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.1)。
+
 ## 1.6.0 主要更新
 
 - **Gemini 原文转写与自动语言检测:** 添加自己的 Gemini API key 后，可选择 **Gemini 3.5 Transcribe Live**，获得不翻译的原文字幕；Gemini 会在采集过程中自动检测口语。
@@ -162,14 +171,14 @@ AirTranslate 只请求捕获和转写流程需要的权限。
 
 由于 ScreenCaptureKit 的系统音频捕获路径需要屏幕录制权限，因此应用会请求该权限。AirTranslate 不会把屏幕画面保存为录制文件。
 
-更改 macOS 隐私权限后，请退出并重新启动应用，以便签名后的应用 bundle 获得新的授权状态。
+macOS 会将权限关联到当前已签名的 AirTranslate 应用构建。如果应用未识别已启用的权限，请只保留当前应用副本，在系统设置中仅关闭再打开一次该权限，然后退出并重新启动应用。常规更新无需重置 TCC。
 
 ## 下载
 
 最新开源构建可在 [GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest) 下载。DMG 是最简单的安装路径，ZIP 也会继续作为轻量压缩包提供。
 
 - [下载 AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [下载 AirTranslate-1.6.0.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.0/AirTranslate-1.6.0.zip)
+- [下载 AirTranslate-1.6.1.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.1/AirTranslate-1.6.1.zip)
 - [下载 AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [查看版本历史](Release/VERSION-HISTORY.md)
 
