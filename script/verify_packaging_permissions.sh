@@ -98,10 +98,57 @@ if /usr/bin/grep -Fq 'AirTranslate.debug.entitlements' "$RELEASE_BUILD_SCRIPT"; 
 fi
 
 require_pattern 'tccutil reset Microphone "$BUNDLE_ID"' "$LOCAL_BUILD_SCRIPT"
+require_pattern 'defaults delete "$BUNDLE_ID" "AirTranslate.screenRecordingAccessRequestAttempted"' "$LOCAL_BUILD_SCRIPT"
 require_pattern 'Microphone (when selected)' "$LOCAL_BUILD_SCRIPT"
 require_pattern '/usr/bin/nohup "$APP_BINARY"' "$LOCAL_BUILD_SCRIPT"
 require_pattern 'verify_running_app' "$LOCAL_BUILD_SCRIPT"
 require_pattern 'Expected $APP_BINARY' "$LOCAL_BUILD_SCRIPT"
+
+SETTINGS_VIEW="$ROOT_DIR/Sources/AirTranslate/Views/SettingsView.swift"
+LIVE_OUTPUT_PICKER="$ROOT_DIR/Sources/AirTranslate/Views/LiveOutputModePicker.swift"
+RELEASE_VERIFY_WORKFLOW="$ROOT_DIR/.github/workflows/release-verify.yml"
+require_pattern '.accessibilityRespondsToUserInteraction(!isDisabled)' "$LIVE_OUTPUT_PICKER"
+settings_accessibility_barrier_count="$(
+  /usr/bin/grep -Fc '.accessibilityRespondsToUserInteraction' "$SETTINGS_VIEW"
+)"
+if [[ "$settings_accessibility_barrier_count" -lt 5 ]]; then
+  echo "locked Settings segmented controls must block accessibility user interaction" >&2
+  exit 1
+fi
+require_pattern 'isOtherwiseAvailable: !session.isUsingProviderRealtimeTranslation' "$SETTINGS_VIEW"
+require_pattern '/usr/bin/grep -aERq' "$RELEASE_VERIFY_WORKFLOW"
+if /usr/bin/grep -Fq '/usr/bin/grep -aERn' "$RELEASE_VERIFY_WORKFLOW"; then
+  echo "release secret scanning must not print matching credential lines" >&2
+  exit 1
+fi
+
+assert_no_dynamic_disabled_after_segmented_picker() {
+  local violations
+  if ! violations="$(
+    /usr/bin/find "$ROOT_DIR/Sources" -name '*.swift' -type f -print0 |
+      /usr/bin/xargs -0 /usr/bin/awk '
+        /\.pickerStyle\(\.segmented\)/ {
+          remaining = 12
+          picker_line = FNR
+          next
+        }
+        remaining > 0 {
+          if ($0 ~ /\.disabled\(/) {
+            print FILENAME ":" FNR ": dynamic .disabled(...) near segmented Picker at line " picker_line
+            found = 1
+          }
+          remaining--
+        }
+        END { exit found ? 1 : 0 }
+      '
+  )"; then
+    echo "segmented Pickers must keep their AppKit enabled state stable:" >&2
+    echo "$violations" >&2
+    exit 1
+  fi
+}
+
+assert_no_dynamic_disabled_after_segmented_picker
 
 for mode in local release; do
   plist_path="$TEMP_DIR/$mode-Info.plist"

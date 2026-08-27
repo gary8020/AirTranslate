@@ -97,4 +97,33 @@ struct SessionConfigurationUIStateTests {
             ) == .lockedSummary
         )
     }
+
+    @Test
+    func settingsSegmentedControlsBlockPointerAndAccessibilityInteractionWithoutChangingControlEnabledState() {
+        #expect(
+            SettingsSegmentedControlAccess.allowsHitTesting(
+                isRunning: false,
+                isStarting: false
+            )
+        )
+        #expect(
+            !SettingsSegmentedControlAccess.allowsHitTesting(
+                isRunning: false,
+                isStarting: true
+            )
+        )
+        #expect(
+            !SettingsSegmentedControlAccess.allowsHitTesting(
+                isRunning: true,
+                isStarting: false
+            )
+        )
+        #expect(
+            !SettingsSegmentedControlAccess.allowsHitTesting(
+                isRunning: false,
+                isStarting: false,
+                isOtherwiseAvailable: false
+            )
+        )
+    }
 }

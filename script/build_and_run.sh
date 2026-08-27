@@ -79,6 +79,7 @@ verify_running_app() {
 
 case "$MODE" in
   --reset-permissions|reset-permissions)
+    /usr/bin/defaults delete "$BUNDLE_ID" "AirTranslate.screenRecordingAccessRequestAttempted" >/dev/null 2>&1 || true
     /usr/bin/tccutil reset ScreenCapture "$BUNDLE_ID" || true
     /usr/bin/tccutil reset AudioCapture "$BUNDLE_ID" || true
     /usr/bin/tccutil reset Microphone "$BUNDLE_ID" || true

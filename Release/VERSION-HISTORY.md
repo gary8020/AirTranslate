@@ -1,5 +1,14 @@
 # AirTranslate Version History
 
+## 1.6.2 - 2026-08-27
+
+### Fixed
+
+- AirTranslate requests Screen Recording access only on the first necessary attempt; later failures show the existing macOS Privacy & Security recovery path without reopening the system request.
+- Permission guidance now tells users to keep only the intended AirTranslate installation because older or differently signed copies with the same bundle identifier can create conflicting TCC identities.
+- Public DMG and ZIP artifacts remain ad-hoc signed, so TCC permission inheritance is not guaranteed between updates and the newly installed build may need to be confirmed in System Settings.
+- The hidden Settings Scene no longer participates in capture-start segmented-control state changes, preventing its disabled `Picker` from entering an AppKit focus-navigation/AttributeGraph CPU loop and allowing the top Gemini Live Start flow to proceed.
+
 ## 1.6.1 - 2026-08-27
 
 ### Fixed

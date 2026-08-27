@@ -47,6 +47,15 @@ The default workflow uses Apple frameworks. GPT Realtime and Gemini Live Transla
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## What's New in 1.6.2
+
+- **One Screen Recording request:** AirTranslate opens the macOS Screen Recording request only on the first attempt that needs it. Later failures point to Privacy & Security settings instead of repeatedly reopening the system prompt.
+- **One intended app installation:** Older or differently signed AirTranslate copies can share `dev.appcaster.AirTranslate` while macOS treats them as different TCC permission identities. Remove or archive the other copies and keep only the installation you intend to run.
+- **Accurate ad-hoc update boundary:** Public DMG and ZIP builds are ad-hoc signed, so Screen Recording permission is not guaranteed to carry over between updates. A newly installed build may need to be confirmed again in System Settings.
+- **Hidden Settings focus loop removed:** A segmented `Picker` in the hidden Settings Scene no longer switches to disabled while capture starts. That invisible AppKit focus-navigation/AttributeGraph loop could consume CPU and make the top Gemini Live Start control appear stuck; startup now proceeds normally.
+
+See the complete [AirTranslate 1.6.2 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.2).
+
 ## What's New in 1.6.1
 
 - **Gemini Live Start is reliable:** The top Start control now begins capture in the selected Gemini Live mode.
@@ -169,9 +178,13 @@ AirTranslate asks for the permissions required by its capture and transcription 
 - Microphone (only when microphone input is selected)
 - Speech Recognition
 
-Screen Recording is required because ScreenCaptureKit provides the system-audio capture path. AirTranslate does not save screen frames as recordings.
+Screen Recording is required because ScreenCaptureKit provides the system-audio capture path. AirTranslate does not save screen frames as recordings. AirTranslate opens the system request only on the first attempt that needs it; after that, unavailable access is handled with a link to Privacy & Security settings rather than another request prompt.
 
-macOS authorizes the currently signed AirTranslate app build. If a permission is already enabled but unavailable, keep only the current app copy, toggle that permission once in System Settings, then quit and relaunch. Routine `tccutil` resets are not needed for normal updates.
+Before troubleshooting, remove or archive older AirTranslate copies from Applications, Downloads, development `dist` folders, and other launch locations. Keep one intended installation, launch that exact copy, and verify its version in **Settings > About**. Older or differently signed copies can use the same `dev.appcaster.AirTranslate` bundle identifier while macOS stores separate TCC permission identities for them.
+
+If the current app is still unavailable after the first request, open **System Settings > Privacy & Security > Screen & System Audio Recording**, confirm the current installation, then quit and relaunch. Routine `tccutil` resets are not needed. Public ad-hoc signed builds do not guarantee TCC permission inheritance between updates, so a newly installed build may need to be confirmed again.
+
+If Gemini Live Start previously appeared stuck despite correct permissions, verify that **Settings > About** shows 1.6.2. This release prevents the hidden Settings segmented control from entering the AppKit focus-navigation/AttributeGraph loop during startup.
 
 ## Download
 
@@ -180,13 +193,13 @@ Download the latest open-source build from [GitHub Releases](https://github.com/
 AirTranslate remains fully open-source under the Apache-2.0 License. The DMG is provided only as a convenient macOS installer, while all source code, build scripts, release materials, LICENSE, and NOTICE files remain available in this repository.
 
 - [Download AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [Download AirTranslate-1.6.1.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.1/AirTranslate-1.6.1.zip)
+- [Download AirTranslate-1.6.2.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.2/AirTranslate-1.6.2.zip)
 - [Download AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [View version history](Release/VERSION-HISTORY.md)
 
 ![AirTranslate install guide](docs/assets/airtranslate-install-guide.svg)
 
-The open-source DMG and ZIP are ad-hoc signed builds for pre-notarization distribution. On the first launch, macOS may show an "unidentified developer" warning. To open the app:
+The open-source DMG and ZIP are ad-hoc signed builds for pre-notarization distribution. On the first launch, macOS may show an "unidentified developer" warning. Ad-hoc signing also means TCC permission inheritance is not guaranteed across updates. To open the app:
 
 1. Open the DMG and drag `AirTranslate.app` to Applications.
 2. In Applications, Control-click or right-click `AirTranslate.app`.

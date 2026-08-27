@@ -2,6 +2,15 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## 1.6.2 - 2026-08-27
+
+### Fixed
+
+- Screen Recording access is now requested only on the first necessary attempt. Later capture failures direct the user to macOS Privacy & Security settings instead of repeatedly opening the system permission prompt.
+- Clarified recovery for TCC identity conflicts: remove or archive older AirTranslate copies and differently signed builds that share `dev.appcaster.AirTranslate`, then keep and launch only the intended installation before checking its permission state.
+- Documented that the public ad-hoc signed DMG and ZIP do not provide stable TCC permission inheritance across updates; users may need to confirm the newly installed build in System Settings.
+- Removed the hidden Settings Scene's segmented `Picker` from the capture-start state transition. Changing that hidden control to disabled could enter an AppKit focus-navigation/AttributeGraph loop and make the top Gemini Live Start control appear stuck; capture startup can now continue without that hidden settings control participating.
+
 ## 1.6.1 - 2026-08-27
 
 ### Fixed

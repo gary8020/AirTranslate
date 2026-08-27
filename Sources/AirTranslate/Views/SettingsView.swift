@@ -109,10 +109,16 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(minWidth: 300, idealWidth: 340, maxWidth: .infinity)
-                .disabled(isSessionConfigurationLocked)
+                .allowsHitTesting(segmentedControlAllowsHitTesting())
+                .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
+                .opacity(isSessionConfigurationLocked ? 0.6 : 1)
                 .accessibilityLabel(SettingsCopy.processingEngine)
                 .accessibilityValue(processingModeSelection.wrappedValue.title)
-                .accessibilityHint(SettingsCopy.processingEngineDetail)
+                .accessibilityHint(
+                    isSessionConfigurationLocked
+                        ? SettingsCopy.captureRunningDisabledReason
+                        : SettingsCopy.processingEngineDetail
+                )
             }
 
             if processingModeSelection.wrappedValue == .gemini {
@@ -130,10 +136,16 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .frame(minWidth: 230, idealWidth: 300, maxWidth: .infinity)
-                    .disabled(isSessionConfigurationLocked)
+                    .allowsHitTesting(segmentedControlAllowsHitTesting())
+                    .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
+                    .opacity(isSessionConfigurationLocked ? 0.6 : 1)
                     .accessibilityLabel(SettingsCopy.geminiLiveMode)
                     .accessibilityValue(geminiModelSelection.wrappedValue.title)
-                    .accessibilityHint(SettingsCopy.geminiLiveModeDetail)
+                    .accessibilityHint(
+                        isSessionConfigurationLocked
+                            ? SettingsCopy.captureRunningDisabledReason
+                            : SettingsCopy.geminiLiveModeDetail
+                    )
                 }
             }
 
@@ -351,7 +363,15 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(width: 190)
-                .disabled(isSessionConfigurationLocked)
+                .allowsHitTesting(segmentedControlAllowsHitTesting())
+                .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
+                .opacity(isSessionConfigurationLocked ? 0.6 : 1)
+                .accessibilityLabel(AppText.audioInputSource)
+                .accessibilityHint(
+                    isSessionConfigurationLocked
+                        ? SettingsCopy.captureRunningDisabledReason
+                        : SettingsCopy.audioInputDetail
+                )
             }
 
             SettingsControlRow(
@@ -400,7 +420,29 @@ struct SettingsView: View {
                     .pickerStyle(.segmented)
                     .labelsHidden()
                     .frame(width: 170)
-                    .disabled(isSessionConfigurationLocked || session.isUsingProviderRealtimeTranslation)
+                    .allowsHitTesting(
+                        segmentedControlAllowsHitTesting(
+                            isOtherwiseAvailable: !session.isUsingProviderRealtimeTranslation
+                        )
+                    )
+                    .accessibilityRespondsToUserInteraction(
+                        segmentedControlAllowsHitTesting(
+                            isOtherwiseAvailable: !session.isUsingProviderRealtimeTranslation
+                        )
+                    )
+                    .opacity(
+                        segmentedControlAllowsHitTesting(
+                            isOtherwiseAvailable: !session.isUsingProviderRealtimeTranslation
+                        ) ? 1 : 0.6
+                    )
+                    .accessibilityLabel(AppText.outputMode)
+                    .accessibilityHint(
+                        isSessionConfigurationLocked
+                            ? SettingsCopy.captureRunningDisabledReason
+                            : session.isUsingProviderRealtimeTranslation
+                                ? SettingsCopy.realtimeTranslationOutputOnly
+                                : SettingsCopy.outputModeDetail
+                    )
                 }
             }
 
@@ -468,7 +510,15 @@ struct SettingsView: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .frame(width: 190)
-                .disabled(isSessionConfigurationLocked)
+                .allowsHitTesting(segmentedControlAllowsHitTesting())
+                .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
+                .opacity(isSessionConfigurationLocked ? 0.6 : 1)
+                .accessibilityLabel(AppText.sessionLength)
+                .accessibilityHint(
+                    isSessionConfigurationLocked
+                        ? SettingsCopy.captureRunningDisabledReason
+                        : session.sessionDurationMode.detail
+                )
             }
 
             SettingsControlRow(
@@ -798,6 +848,16 @@ struct SettingsView: View {
         session.isRunning || session.isStarting
     }
 
+    /// Keeps AppKit's segmented control enabled state stable while capture starts.
+    /// The guarded bindings below remain the accessibility and programmatic write barrier.
+    private func segmentedControlAllowsHitTesting(isOtherwiseAvailable: Bool = true) -> Bool {
+        SettingsSegmentedControlAccess.allowsHitTesting(
+            isRunning: session.isRunning,
+            isStarting: session.isStarting,
+            isOtherwiseAvailable: isOtherwiseAvailable
+        )
+    }
+
     private func lockedSessionConfigurationBinding<Value>(_ binding: Binding<Value>) -> Binding<Value> {
         Binding(
             get: { binding.wrappedValue },
@@ -841,7 +901,9 @@ struct SettingsView: View {
         Binding {
             session.liveOutputMode
         } set: { mode in
-            guard !isSessionConfigurationLocked else { return }
+            guard segmentedControlAllowsHitTesting(
+                isOtherwiseAvailable: !session.isUsingProviderRealtimeTranslation
+            ) else { return }
             session.useLiveOutputMode(mode)
         }
     }
@@ -1137,6 +1199,16 @@ private enum SettingsCategory: String, CaseIterable, Hashable, Identifiable {
         case .info:
             "info.circle"
         }
+    }
+}
+
+enum SettingsSegmentedControlAccess {
+    static func allowsHitTesting(
+        isRunning: Bool,
+        isStarting: Bool,
+        isOtherwiseAvailable: Bool = true
+    ) -> Bool {
+        !isRunning && !isStarting && isOtherwiseAvailable
     }
 }
 

@@ -25,6 +25,65 @@ protocol SystemAudioCaptureDelegate: AnyObject {
     )
 }
 
+struct ScreenRecordingRequestAttemptStore: @unchecked Sendable {
+    private static let userDefaultsKey = "AirTranslate.screenRecordingAccessRequestAttempted"
+
+    let hasRequestedAccess: () -> Bool
+    let markRequestedAccess: () -> Void
+
+    static func userDefaults(_ defaults: UserDefaults = .standard) -> Self {
+        Self(
+            hasRequestedAccess: { defaults.bool(forKey: userDefaultsKey) },
+            markRequestedAccess: { defaults.set(true, forKey: userDefaultsKey) }
+        )
+    }
+}
+
+/// Persists the system screen-recording request attempt across app launches.
+/// The TCC preflight still wins so an approval made in System Settings is
+/// usable without another request from the app.
+final class ScreenRecordingAccessPolicy: @unchecked Sendable {
+    typealias AccessCheck = () -> Bool
+
+    private let preflightAccess: AccessCheck
+    private let requestAccess: AccessCheck
+    private let requestAttemptStore: ScreenRecordingRequestAttemptStore
+    private let stateLock = NSLock()
+
+    init(
+        preflightAccess: @escaping AccessCheck = CGPreflightScreenCaptureAccess,
+        requestAccess: @escaping AccessCheck = CGRequestScreenCaptureAccess,
+        requestAttemptStore: ScreenRecordingRequestAttemptStore = .userDefaults()
+    ) {
+        self.preflightAccess = preflightAccess
+        self.requestAccess = requestAccess
+        self.requestAttemptStore = requestAttemptStore
+    }
+
+    func hasAccessOrRequestsOnce() -> Bool {
+        if preflightAccess() {
+            return withStateLock {
+                if !requestAttemptStore.hasRequestedAccess() {
+                    requestAttemptStore.markRequestedAccess()
+                }
+                return true
+            }
+        }
+
+        return withStateLock {
+            guard !requestAttemptStore.hasRequestedAccess() else { return false }
+            requestAttemptStore.markRequestedAccess()
+            return requestAccess()
+        }
+    }
+
+    private func withStateLock<Result>(_ body: () -> Result) -> Result {
+        stateLock.lock()
+        defer { stateLock.unlock() }
+        return body()
+    }
+}
+
 actor CaptureOperationGate {
     private var isLocked = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
@@ -52,6 +111,7 @@ actor CaptureOperationGate {
 
 final class SystemAudioCapture: NSObject, @unchecked Sendable {
     private static let audioLevelReportInterval = 8
+    private static let sharedScreenRecordingAccessPolicy = ScreenRecordingAccessPolicy()
 
     static func isUserStoppedError(_ error: Error) -> Bool {
         if error is SystemAudioCaptureLifecycleOutcome {
@@ -76,9 +136,16 @@ final class SystemAudioCapture: NSObject, @unchecked Sendable {
     private let operationGate = CaptureOperationGate()
     private let sampleQueue = DispatchQueue(label: "AirTranslate.SystemAudioCapture.sampleQueue")
     private weak var delegateStorage: SystemAudioCaptureDelegate?
+    private let screenRecordingAccessPolicy: ScreenRecordingAccessPolicy
     private var operationGeneration: UInt64 = 0
     private var userStoppedGeneration: UInt64?
     private var activeStream: ActiveStream?
+
+    init(screenRecordingAccessPolicy: ScreenRecordingAccessPolicy? = nil) {
+        self.screenRecordingAccessPolicy = screenRecordingAccessPolicy
+            ?? Self.sharedScreenRecordingAccessPolicy
+        super.init()
+    }
 
     var delegate: SystemAudioCaptureDelegate? {
         get { withStateLock { delegateStorage } }
@@ -87,7 +154,7 @@ final class SystemAudioCapture: NSObject, @unchecked Sendable {
 
     @MainActor
     func requestScreenRecordingAccess() throws {
-        guard CGPreflightScreenCaptureAccess() || CGRequestScreenCaptureAccess() else {
+        guard screenRecordingAccessPolicy.hasAccessOrRequestsOnce() else {
             throw CaptureError.screenRecordingNotGranted
         }
     }

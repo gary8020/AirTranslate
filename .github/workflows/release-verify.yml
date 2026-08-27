@@ -32,6 +32,16 @@ jobs:
           xcodebuild -version
           swift --version
 
+      - name: Load app metadata
+        id: metadata
+        run: |
+          source script/app_metadata.sh
+          echo "APP_NAME=$APP_NAME" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "BUILD_NUMBER=$BUILD_NUMBER" >> "$GITHUB_ENV"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+
       - name: Verify release lineage
         run: git merge-base --is-ancestor v1.5.1 HEAD
 
@@ -89,19 +99,19 @@ jobs:
 
       - name: Verify disk images and checksums
         run: |
-          hdiutil verify Release/product/AirTranslate.dmg
-          hdiutil verify Release/product/AirTranslate-1.6.1.dmg
+          hdiutil verify "Release/product/$APP_NAME.dmg"
+          hdiutil verify "Release/product/$APP_NAME-$VERSION.dmg"
           cd Release/product
-          shasum -a 256 -c AirTranslate.dmg.sha256
-          shasum -a 256 -c AirTranslate-1.6.1.dmg.sha256
+          shasum -a 256 -c "$APP_NAME.dmg.sha256"
+          shasum -a 256 -c "$APP_NAME-$VERSION.dmg.sha256"
 
       - name: Verify bundle and archive contents
         run: |
-          app="Release/product/AirTranslate.app"
+          app="Release/product/$APP_NAME.app"
           info="$app/Contents/Info.plist"
           codesign --verify --deep --strict --verbose=2 "$app"
-          test "$(plutil -extract CFBundleShortVersionString raw -o - "$info")" = "1.6.1"
-          test "$(plutil -extract CFBundleVersion raw -o - "$info")" = "161"
+          test "$(plutil -extract CFBundleShortVersionString raw -o - "$info")" = "$VERSION"
+          test "$(plutil -extract CFBundleVersion raw -o - "$info")" = "$BUILD_NUMBER"
 
           codesign -d --entitlements :- "$app" 2>&1 \
             | sed -n '/^<?xml/,/<\/plist>/p' \
@@ -117,19 +127,19 @@ jobs:
           mount_point="$scan_root/mount"
           trap 'hdiutil detach "$mount_point" >/dev/null 2>&1 || true; rm -rf "$scan_root"' EXIT
           mkdir -p "$scan_root/build-zip" "$scan_root/stable-zip" "$mount_point"
-          ditto -x -k Release/product/AirTranslate-1.6.1-161.zip "$scan_root/build-zip"
-          ditto -x -k Release/product/AirTranslate-1.6.1.zip "$scan_root/stable-zip"
-          hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" Release/product/AirTranslate.dmg
+          ditto -x -k "Release/product/$APP_NAME-$VERSION-$BUILD_NUMBER.zip" "$scan_root/build-zip"
+          ditto -x -k "Release/product/$APP_NAME-$VERSION.zip" "$scan_root/stable-zip"
+          hdiutil attach -readonly -nobrowse -mountpoint "$mount_point" "Release/product/$APP_NAME.dmg"
 
           for root in "$scan_root/build-zip" "$scan_root/stable-zip" "$mount_point"; do
-            test -d "$root/AirTranslate.app"
-            test -f "$root/AirTranslate.app/Contents/Resources/LICENSE"
-            test -f "$root/AirTranslate.app/Contents/Resources/NOTICE"
-            test -f "$root/AirTranslate.app/Contents/Resources/AppIcon.icns"
+            test -d "$root/$APP_NAME.app"
+            test -f "$root/$APP_NAME.app/Contents/Resources/LICENSE"
+            test -f "$root/$APP_NAME.app/Contents/Resources/NOTICE"
+            test -f "$root/$APP_NAME.app/Contents/Resources/AppIcon.icns"
           done
 
-          diff -rq "$scan_root/build-zip/AirTranslate.app" "$scan_root/stable-zip/AirTranslate.app"
-          cmp Release/product/AirTranslate.dmg Release/product/AirTranslate-1.6.1.dmg
+          diff -rq "$scan_root/build-zip/$APP_NAME.app" "$scan_root/stable-zip/$APP_NAME.app"
+          cmp "Release/product/$APP_NAME.dmg" "Release/product/$APP_NAME-$VERSION.dmg"
 
           if find "$scan_root/build-zip" "$scan_root/stable-zip" "$mount_point" \
             -type f \( -name '.env' -o -name '*.p12' -o -name '*.mobileprovision' \
@@ -140,11 +150,11 @@ jobs:
 
           secret_pattern='(sk-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{35}|OPENAI_API_KEY[[:space:]]*=[[:space:]]*[A-Za-z0-9_-]+|GEMINI_API_KEY[[:space:]]*=[[:space:]]*[A-Za-z0-9_-]+|ghp_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|AKIA[0-9A-Z]{16}|-----BEGIN (RSA |OPENSSH |EC |DSA )?PRIVATE KEY-----)'
           set +e
-          /usr/bin/grep -aERn \
+          /usr/bin/grep -aERq \
             "$secret_pattern" \
-            "$scan_root/build-zip/AirTranslate.app" \
-            "$scan_root/stable-zip/AirTranslate.app" \
-            "$mount_point/AirTranslate.app"
+            "$scan_root/build-zip/$APP_NAME.app" \
+            "$scan_root/stable-zip/$APP_NAME.app" \
+            "$mount_point/$APP_NAME.app"
           scan_status=$?
           set -e
           if [[ "$scan_status" -eq 0 ]]; then
@@ -159,13 +169,13 @@ jobs:
       - name: Upload verified release set
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
-          name: AirTranslate-1.6.1-161-release-set
+          name: AirTranslate-${{ steps.metadata.outputs.version }}-${{ steps.metadata.outputs.build_number }}-release-set
           path: |
-            Release/product/AirTranslate-1.6.1-161.zip
-            Release/product/AirTranslate-1.6.1.zip
+            Release/product/AirTranslate-${{ steps.metadata.outputs.version }}-${{ steps.metadata.outputs.build_number }}.zip
+            Release/product/AirTranslate-${{ steps.metadata.outputs.version }}.zip
             Release/product/AirTranslate.dmg
             Release/product/AirTranslate.dmg.sha256
-            Release/product/AirTranslate-1.6.1.dmg
-            Release/product/AirTranslate-1.6.1.dmg.sha256
+            Release/product/AirTranslate-${{ steps.metadata.outputs.version }}.dmg
+            Release/product/AirTranslate-${{ steps.metadata.outputs.version }}.dmg.sha256
           if-no-files-found: error
           retention-days: 7

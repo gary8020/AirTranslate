@@ -47,6 +47,15 @@ AirTranslateは、Macで再生されている音声をリアルタイムで文�
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.6.2の主な変更点
+
+- **画面収録のシステム要求は最初の1回:** AirTranslateは、画面収録権限が初めて必要になった試行でのみmacOSのシステム要求を開きます。その後も権限を利用できない場合は要求を繰り返さず、プライバシーとセキュリティ設定へ案内します。
+- **使用するインストールを1つだけ保持:** 古い、または署名が異なるAirTranslateのコピーは、同じ`dev.appcaster.AirTranslate` Bundle IDでもmacOS TCCでは別の権限IDとして扱われる場合があります。ほかのコピーを削除または保管し、実際に使うインストールだけを残してください。
+- **ad-hoc更新の制限を明示:** 公開DMGとZIPはad-hoc署名ビルドのため、更新間で画面収録権限が安定して引き継がれる保証はありません。新しくインストールしたビルドをシステム設定で再確認する場合があります。
+- **非表示の設定フォーカスループを削除:** 非表示のSettings Sceneにあるセグメント`Picker`は、キャプチャ開始中に無効状態へ切り替わらなくなりました。この見えない遷移がAppKitのフォーカス移動とAttributeGraphのCPUループを起こし、上部のGemini Live開始が停止したように見える場合がありましたが、開始処理は正常に進むようになりました。
+
+詳細は[AirTranslate 1.6.2リリースノート](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.2)をご覧ください。
+
 ## 1.6.1の主な変更点
 
 - **Gemini Liveの開始を安定化:** 上部の開始ボタンから、選択したGemini Liveモードでキャプチャを開始できます。
@@ -169,20 +178,24 @@ AirTranslateは、キャプチャと文字起こしに必要な権限だけを�
 - マイク（マイク入力を選択した場合のみ）
 - 音声認識
 
-ScreenCaptureKitのシステム音声キャプチャ経路を使うため、画面収録権限が必要です。AirTranslateは画面フレームを録画ファイルとして保存しません。
+ScreenCaptureKitのシステム音声キャプチャ経路を使うため、画面収録権限が必要です。AirTranslateは画面フレームを録画ファイルとして保存しません。システム要求は権限が初めて必要になった試行でのみ開き、その後も利用できない場合は要求を繰り返さず、プライバシーとセキュリティ設定へ案内します。
 
-macOSは現在署名されたAirTranslateアプリのビルドに権限を関連付けます。すでに有効な権限をアプリが認識しない場合は、現在のアプリだけを残してシステム設定で該当する権限だけを一度オフ・オンにし、アプリを終了して再起動してください。通常の更新でTCCをリセットする必要はありません。
+確認する前に、Applications、Downloads、開発用`dist`フォルダなど起動可能な場所にある古いAirTranslateのコピーを削除または保管してください。使用するインストールだけを残してそのアプリを起動し、**設定 > 情報**でバージョンを確認します。古い、または署名が異なるコピーは、同じ`dev.appcaster.AirTranslate` Bundle IDでもmacOSが別のTCC権限IDとして保存する場合があります。
+
+最初の要求後も現在のアプリで権限を利用できない場合は、**システム設定 > プライバシーとセキュリティ > 画面収録とシステムオーディオ録音**で現在のインストールを確認し、アプリを終了して再起動してください。通常の`tccutil`リセットは不要です。公開ad-hoc署名ビルドは更新間のTCC権限継承を保証しないため、新しいインストールを再確認する場合があります。
+
+権限が正しいのにGemini Liveの開始が止まったように見えていた場合は、**設定 > 情報**で1.6.2であることを確認してください。このバージョンでは、開始中に非表示の設定セグメント操作がAppKitのフォーカス移動/AttributeGraphループへ入ることを防ぎます。
 
 ## ダウンロード
 
 最新のオープンソースビルドは[GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest)からダウンロードできます。DMGが最も簡単なインストール方法で、ZIPも軽量な配布形式として引き続き利用できます。
 
 - [AirTranslate.dmgをダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.6.1.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.6.1/AirTranslate-1.6.1.zip)
+- [AirTranslate-1.6.2.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.6.2/AirTranslate-1.6.2.zip)
 - [AirTranslate.dmg.sha256をダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [バージョン履歴を見る](Release/VERSION-HISTORY.md)
 
-リリースDMGとZIPは、オープンソース配布用のad-hoc署名ビルドです。まだApple notarization済みの配布ではないため、初回起動時にmacOSが「開発元を確認できません」という警告を表示する場合があります。
+リリースDMGとZIPは、オープンソース配布用のad-hoc署名ビルドです。まだApple notarization済みの配布ではないため、初回起動時にmacOSが「開発元を確認できません」という警告を表示する場合があります。また、ad-hoc署名では更新間のTCC権限継承が保証されません。
 
 1. DMGを開き、`AirTranslate.app`をApplicationsフォルダへドラッグします。
 2. Applicationsで`AirTranslate.app`をControlクリックまたは右クリックします。

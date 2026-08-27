@@ -47,6 +47,15 @@ AirTranslate는 Mac에서 재생되는 소리를 실시간으로 기록하고 �
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.6.2 주요 변경사항
+
+- **화면 기록 요청은 최초 1회:** AirTranslate는 화면 기록 권한이 처음 필요한 시도에서만 macOS 시스템 요청을 엽니다. 이후에도 권한을 사용할 수 없으면 요청 창을 반복해서 띄우지 않고 개인정보 보호 및 보안 설정으로 안내합니다.
+- **사용할 설치본 하나만 유지:** 오래되었거나 서명이 다른 AirTranslate 사본은 `dev.appcaster.AirTranslate` Bundle ID가 같아도 macOS TCC에서 서로 다른 권한 정체성으로 처리될 수 있습니다. 다른 사본은 제거하거나 보관하고 실제로 사용할 설치본 하나만 남기세요.
+- **ad-hoc 업데이트 경계 명시:** 공개 DMG와 ZIP은 ad-hoc 서명 빌드이므로 업데이트 사이에 화면 기록 권한이 안정적으로 승계된다고 보장할 수 없습니다. 새 설치본을 시스템 설정에서 다시 확인해야 할 수 있습니다.
+- **숨겨진 설정 포커스 루프 제거:** 보이지 않는 Settings Scene의 세그먼트 `Picker`가 캡처 시작 중 비활성화 상태로 바뀌지 않도록 했습니다. 이 전환은 AppKit 포커스 탐색과 AttributeGraph CPU 루프를 만들어 상단 Gemini Live 시작이 멈춘 것처럼 보이게 할 수 있었으며, 이제 시작 흐름이 정상 진행됩니다.
+
+전체 내용은 [AirTranslate 1.6.2 릴리즈 노트](https://github.com/himomohi/AirTranslate/releases/tag/v1.6.2)에서 확인할 수 있습니다.
+
 ## 1.6.1 주요 변경사항
 
 - **Gemini Live 시작 안정화:** 상단 시작 버튼이 선택한 Gemini Live 모드로 캡처를 시작합니다.
@@ -169,9 +178,13 @@ AirTranslate는 캡처와 전사 흐름에 필요한 권한만 요청합니다.
 - 마이크(마이크 입력을 선택한 경우에만)
 - 음성 인식
 
-ScreenCaptureKit의 시스템 오디오 캡처 경로 때문에 화면 기록 권한이 필요합니다. AirTranslate는 화면 프레임을 녹화 파일로 저장하지 않습니다.
+ScreenCaptureKit의 시스템 오디오 캡처 경로 때문에 화면 기록 권한이 필요합니다. AirTranslate는 화면 프레임을 녹화 파일로 저장하지 않습니다. 시스템 요청은 권한이 처음 필요한 시도에서만 열며, 그 뒤에도 권한을 사용할 수 없으면 요청 창을 다시 띄우지 않고 개인정보 보호 및 보안 설정으로 안내합니다.
 
-macOS는 현재 서명된 AirTranslate 앱 빌드에 권한을 연결합니다. 이미 켜 둔 권한을 앱이 인식하지 못하면 현재 앱만 남기고 시스템 설정에서 해당 권한만 한 번 껐다 켠 뒤 앱을 종료하고 다시 실행하세요. 일반 업데이트에 `tccutil` 초기화는 필요하지 않습니다.
+문제를 확인하기 전에 Applications, Downloads, 개발용 `dist` 폴더 등 실행 가능한 위치의 오래된 AirTranslate 사본을 제거하거나 보관하세요. 실제로 사용할 설치본 하나만 남기고 그 앱을 실행한 뒤 **설정 > 정보**에서 버전을 확인하세요. 오래되었거나 서명이 다른 사본은 `dev.appcaster.AirTranslate` Bundle ID가 같아도 macOS가 서로 다른 TCC 권한 정체성으로 저장할 수 있습니다.
+
+최초 요청 뒤에도 현재 앱에서 권한을 사용할 수 없다면 **시스템 설정 > 개인정보 보호 및 보안 > 화면 및 시스템 오디오 기록**에서 현재 설치본을 확인한 뒤 앱을 종료하고 다시 실행하세요. 일반적인 `tccutil` 초기화는 필요하지 않습니다. 공개 ad-hoc 서명 빌드는 업데이트 간 TCC 권한 승계를 보장하지 않으므로 새 설치본을 다시 확인해야 할 수 있습니다.
+
+권한이 올바른데도 Gemini Live 시작이 멈춘 것처럼 보였다면 **설정 > 정보**에서 1.6.2인지 확인하세요. 이 버전은 시작 중 숨겨진 설정 세그먼트 제어가 AppKit 포커스 탐색/AttributeGraph 루프에 들어가지 않도록 합니다.
 
 ## 다운로드
 
@@ -180,11 +193,11 @@ macOS는 현재 서명된 AirTranslate 앱 빌드에 권한을 연결합니다. 
 AirTranslate는 Apache-2.0 라이선스의 오픈소스 프로젝트입니다. DMG 파일은 macOS 사용자가 더 쉽게 설치할 수 있도록 추가로 제공되는 설치 패키지이며, 소스코드 공개를 대체하는 것이 아닙니다. 소스코드, 빌드 스크립트, 릴리즈 자료, LICENSE, NOTICE 파일은 모두 이 저장소에 공개되어 있습니다.
 
 - [AirTranslate.dmg 다운로드](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.6.1.zip 다운로드](https://github.com/himomohi/AirTranslate/releases/download/v1.6.1/AirTranslate-1.6.1.zip)
+- [AirTranslate-1.6.2.zip 다운로드](https://github.com/himomohi/AirTranslate/releases/download/v1.6.2/AirTranslate-1.6.2.zip)
 - [AirTranslate.dmg.sha256 다운로드](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [버전 히스토리 보기](Release/VERSION-HISTORY.md)
 
-릴리즈 DMG와 ZIP은 오픈소스 배포용 ad-hoc 서명 빌드입니다. 아직 Apple notarization이 완료된 배포가 아니므로 처음 실행할 때 macOS가 "확인되지 않은 개발자" 경고를 표시할 수 있습니다.
+릴리즈 DMG와 ZIP은 오픈소스 배포용 ad-hoc 서명 빌드입니다. 아직 Apple notarization이 완료된 배포가 아니므로 처음 실행할 때 macOS가 "확인되지 않은 개발자" 경고를 표시할 수 있습니다. 또한 ad-hoc 서명은 업데이트 간 TCC 권한 승계를 보장하지 않습니다.
 
 1. DMG를 열고 `AirTranslate.app`을 Applications 폴더로 드래그합니다.
 2. Applications에서 `AirTranslate.app`을 Control-클릭 또는 오른쪽 클릭합니다.
