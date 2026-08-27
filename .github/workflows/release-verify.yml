@@ -3,6 +3,7 @@ name: Release Verify
 on:
   push:
     branches:
+      - master
       - "codex/release-airtranslate-*"
   workflow_dispatch:
 
@@ -21,7 +22,7 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -52,6 +53,26 @@ jobs:
             fi
             if ! grep -Eq 'Test run with 2 tests in 1 suite passed' "$attempt_log"; then
               echo "Metadata-grace regression attempt did not execute exactly two tests." >&2
+              exit 1
+            fi
+            rm "$attempt_log"
+          done
+
+      - name: Stress restored settings isolation
+        run: |
+          set -o pipefail
+          for attempt in {1..20}; do
+            echo "Restored-settings isolation attempt $attempt/20"
+            attempt_log="/tmp/airtranslate-restored-settings-$attempt.log"
+            swift test \
+              --filter 'restoredGeminiTranscriptionPreservesFloatingCaptionPreference' \
+              2>&1 | tee "$attempt_log"
+            if grep -Fq 'No matching test cases were run' "$attempt_log"; then
+              echo "Restored-settings isolation filter matched no tests." >&2
+              exit 1
+            fi
+            if ! grep -Eq 'Test run with 1 test in 1 suite passed' "$attempt_log"; then
+              echo "Restored-settings isolation attempt did not execute exactly one test." >&2
               exit 1
             fi
             rm "$attempt_log"
@@ -136,7 +157,7 @@ jobs:
           fi
 
       - name: Upload verified release set
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: AirTranslate-1.6.0-160-release-set
           path: |
