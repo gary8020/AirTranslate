@@ -529,6 +529,7 @@ final class TranslationSessionStore {
         @Sendable (LanguageOption, LanguageOption, IntelligenceModel) async throws -> Void
     )?
     private let transcriptsDirectoryOverride: URL?
+    private let settingsDefaults: UserDefaults
     private var audioSampleCount = 0
     private var lastRecognizedText = ""
     private var lastRecognizedWasFinal = false
@@ -674,12 +675,14 @@ final class TranslationSessionStore {
         translationSessionPreparer: (
             @Sendable (LanguageOption, LanguageOption, IntelligenceModel) async throws -> Void
         )? = nil,
+        settingsDefaults: UserDefaults = .standard,
         transcriptsDirectoryURL: URL? = nil,
         transcriptCheckpointInterval: TimeInterval = TranslationSessionStore.defaultTranscriptCheckpointInterval
     ) {
         self.modelAvailabilityProvider = modelAvailabilityProvider
         self.modelAssetDownloader = modelAssetDownloader
         self.translationSessionPreparer = translationSessionPreparer
+        self.settingsDefaults = settingsDefaults
         self.transcriptsDirectoryOverride = transcriptsDirectoryURL
         self.transcriptCheckpointInterval = transcriptCheckpointInterval
         restoreSelectedSettings()
@@ -2274,7 +2277,7 @@ final class TranslationSessionStore {
         isRestoringSelectedSettings = true
         defer { isRestoringSelectedSettings = false }
 
-        let defaults = UserDefaults.standard
+        let defaults = settingsDefaults
         if let sourceLanguageID = defaults.string(forKey: SettingsKey.sourceLanguageID),
            let language = LanguageOption.supported.first(where: { $0.id == sourceLanguageID }) {
             sourceLanguage = language
@@ -2407,7 +2410,7 @@ final class TranslationSessionStore {
     private func persistSelectedSettings() {
         guard !isRestoringSelectedSettings else { return }
 
-        let defaults = UserDefaults.standard
+        let defaults = settingsDefaults
         defaults.set(sourceLanguage.id, forKey: SettingsKey.sourceLanguageID)
         defaults.set(targetLanguage.id, forKey: SettingsKey.targetLanguageID)
         defaults.set(selectedModel.id, forKey: SettingsKey.selectedModelID)

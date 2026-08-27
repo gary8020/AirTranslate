@@ -398,37 +398,28 @@ struct TranslationSessionStoreLanguageCandidateTests {
     @Test
     @MainActor
     func restoredGeminiTranscriptionPreservesFloatingCaptionPreference() {
-        StandardUserDefaultsTestLock.shared.withLock {
-            let defaults = UserDefaults.standard
-            let keys = [
-                "geminiTranslationModelID",
-                "preferredGeminiModelID",
-                "floatingCaptionDisplayMode",
-            ]
-            let previous = Dictionary(uniqueKeysWithValues: keys.map { ($0, defaults.object(forKey: $0)) })
-            defer {
-                for key in keys {
-                    if let value = previous[key] {
-                        defaults.set(value, forKey: key)
-                    } else {
-                        defaults.removeObject(forKey: key)
-                    }
-                }
-            }
+        let suiteName = "TranslationSessionStoreLanguageCandidateTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
-            defaults.set(GeminiTranslationModel.gemini35TranscribeLive.rawValue, forKey: "geminiTranslationModelID")
-            defaults.set(GeminiTranslationModel.gemini35TranscribeLive.rawValue, forKey: "preferredGeminiModelID")
-            defaults.set(FloatingCaptionDisplayMode.originalAndTranslation.rawValue, forKey: "floatingCaptionDisplayMode")
+        defaults.set(IntelligenceModel.appleSystem.rawValue, forKey: "selectedModelID")
+        defaults.set(OpenAIRealtimeTranscriptionModel.off.rawValue, forKey: "openAITranscriptionModelID")
+        defaults.set(OpenAIRealtimeTranslationModel.off.rawValue, forKey: "openAITranslationModelID")
+        defaults.set(GeminiTranslationModel.gemini35TranscribeLive.rawValue, forKey: "geminiTranslationModelID")
+        defaults.set(GeminiTranslationModel.gemini35TranscribeLive.rawValue, forKey: "preferredGeminiModelID")
+        defaults.set(FloatingCaptionDisplayMode.originalAndTranslation.rawValue, forKey: "floatingCaptionDisplayMode")
 
-            let session = TranslationSessionStore(modelAvailabilityProvider: { _, _ in [:] })
+        let session = TranslationSessionStore(
+            modelAvailabilityProvider: { _, _ in [:] },
+            settingsDefaults: defaults
+        )
 
-            #expect(session.isUsingGeminiTranscriptionMode)
-            #expect(session.floatingCaptionDisplayMode == .original)
+        #expect(session.isUsingGeminiTranscriptionMode)
+        #expect(session.floatingCaptionDisplayMode == .original)
 
-            session.useGeminiMode(.gemini35LiveTranslate)
+        session.useGeminiMode(.gemini35LiveTranslate)
 
-            #expect(session.floatingCaptionDisplayMode == .originalAndTranslation)
-        }
+        #expect(session.floatingCaptionDisplayMode == .originalAndTranslation)
     }
 
     @Test
