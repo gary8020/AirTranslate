@@ -457,7 +457,13 @@ final class LiveSpeechTranscriber: @unchecked Sendable {
             let inputQueue: SpeechAnalyzerInputQueue<AnalyzerInput> = makeInputQueue(
                 bufferLimit: Self.analyzerInputBufferLimit
             )
-            let analyzer = SpeechAnalyzer(modules: modules)
+            let analyzer = SpeechAnalyzer(
+                modules: modules,
+                options: SpeechAnalyzer.Options(
+                    priority: .userInitiated,
+                    modelRetention: .processLifetime
+                )
+            )
             let didPublishPreparationResources = stateLock.withLock {
                 guard self.lifecycleGeneration == lifecycleGeneration else {
                     return false
