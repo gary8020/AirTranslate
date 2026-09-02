@@ -7,8 +7,9 @@ struct AppleCaptionRolloverTests {
     @Test
     @MainActor
     func rolloverStartsNewLineAfterCommittedTextGrows() async throws {
-        let (session, directory) = try makeTranscriptionSession()
+        let (session, directory, settingsSuiteName) = try makeTranscriptionSession()
         defer { try? FileManager.default.removeItem(at: directory) }
+        defer { UserDefaults.standard.removePersistentDomain(forName: settingsSuiteName) }
         let transcriber = LiveSpeechTranscriber()
 
         let latestSentence = await feedUntilRollover(session: session, transcriber: transcriber)
@@ -23,8 +24,9 @@ struct AppleCaptionRolloverTests {
     @Test
     @MainActor
     func replayOfFinalizedSentenceAfterRolloverIsNotDuplicated() async throws {
-        let (session, directory) = try makeTranscriptionSession()
+        let (session, directory, settingsSuiteName) = try makeTranscriptionSession()
         defer { try? FileManager.default.removeItem(at: directory) }
+        defer { UserDefaults.standard.removePersistentDomain(forName: settingsSuiteName) }
         let transcriber = LiveSpeechTranscriber()
 
         _ = await feedUntilRollover(session: session, transcriber: transcriber)
@@ -53,8 +55,9 @@ struct AppleCaptionRolloverTests {
     @Test
     @MainActor
     func longSilenceRollsOverSmallerBlocks() async throws {
-        let (session, directory) = try makeTranscriptionSession()
+        let (session, directory, settingsSuiteName) = try makeTranscriptionSession()
         defer { try? FileManager.default.removeItem(at: directory) }
+        defer { UserDefaults.standard.removePersistentDomain(forName: settingsSuiteName) }
         let transcriber = LiveSpeechTranscriber()
         session.paragraphBreakSilenceInterval = 0.05
 
@@ -76,8 +79,9 @@ struct AppleCaptionRolloverTests {
     @Test
     @MainActor
     func savedTranscriptContainsAllRolledOverLines() async throws {
-        let (session, directory) = try makeTranscriptionSession()
+        let (session, directory, settingsSuiteName) = try makeTranscriptionSession()
         defer { try? FileManager.default.removeItem(at: directory) }
+        defer { UserDefaults.standard.removePersistentDomain(forName: settingsSuiteName) }
         let transcriber = LiveSpeechTranscriber()
 
         let latestSentence = await feedUntilRollover(session: session, transcriber: transcriber)
@@ -91,8 +95,9 @@ struct AppleCaptionRolloverTests {
     @Test
     @MainActor
     func perUpdateWorkStaysBoundedAcrossManySentences() async throws {
-        let (session, directory) = try makeTranscriptionSession()
+        let (session, directory, settingsSuiteName) = try makeTranscriptionSession()
         defer { try? FileManager.default.removeItem(at: directory) }
+        defer { UserDefaults.standard.removePersistentDomain(forName: settingsSuiteName) }
         let transcriber = LiveSpeechTranscriber()
 
         for index in 0..<200 {
@@ -105,13 +110,16 @@ struct AppleCaptionRolloverTests {
     }
 
     @MainActor
-    private func makeTranscriptionSession() throws -> (TranslationSessionStore, URL) {
+    private func makeTranscriptionSession() throws -> (TranslationSessionStore, URL, String) {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("AirTranslateAppleRolloverTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let settingsSuiteName = "AirTranslateAppleRolloverSettings-\(UUID().uuidString)"
+        let settingsDefaults = UserDefaults(suiteName: settingsSuiteName)!
         let session = TranslationSessionStore(
             modelAvailabilityProvider: { _, _ in [:] },
-            transcriptsDirectoryURL: directory
+            transcriptsDirectoryURL: directory,
+            settingsDefaults: settingsDefaults
         )
         session.useTranscribeOnlyMode()
         session.sourceLanguage = .english
@@ -122,7 +130,7 @@ struct AppleCaptionRolloverTests {
         session.isAppleSourceAutoDetectionEnabled = false
         session.paragraphBreakSilenceInterval = 30
         session.isRunning = true
-        return (session, directory)
+        return (session, directory, settingsSuiteName)
     }
 
     @MainActor

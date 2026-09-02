@@ -191,10 +191,14 @@ struct AppleLifecycleP2Tests {
             .appendingPathComponent("AirTranslateUserStopTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
+        let settingsSuiteName = "AirTranslateUserStopSettings-\(UUID().uuidString)"
+        let settingsDefaults = UserDefaults(suiteName: settingsSuiteName)!
+        defer { settingsDefaults.removePersistentDomain(forName: settingsSuiteName) }
 
         let session = TranslationSessionStore(
             modelAvailabilityProvider: { _, _ in [:] },
-            transcriptsDirectoryURL: directory
+            transcriptsDirectoryURL: directory,
+            settingsDefaults: settingsDefaults
         )
         session.isTranscriptPersistenceEnabled = true
         session.savedTranscriptContentMode = .original
