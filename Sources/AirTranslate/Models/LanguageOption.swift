@@ -46,4 +46,35 @@ struct LanguageOption: Identifiable, Hashable, Sendable {
 
         return fallback
     }
+
+    var metaLanguageBiasName: String? {
+        switch id.lowercased().split(separator: "-").first.map(String.init) {
+        case "en": "English"
+        case "ko": "Korean"
+        case "ja": "Japanese"
+        case "zh": "Mandarin Chinese"
+        case "es": "Spanish"
+        case "fr": "French"
+        case "de": "German"
+        case "pt": "Portuguese"
+        case "it": "Italian"
+        case "nl": "Dutch"
+        case "pl": "Polish"
+        case "tr": "Turkish"
+        case "ar": "Arabic"
+        case "he": "Hebrew"
+        case "hi": "Hindi"
+        case "bn": "Bengali"
+        case "mr": "Marathi"
+        case "ta": "Tamil"
+        case "te": "Telugu"
+        case "kn": "Kannada"
+        case "id": "Indonesian"
+        case "ms": "Malay"
+        case "tl", "fil": "Tagalog"
+        case "th": "Thai"
+        case "vi": "Vietnamese"
+        default: nil
+        }
+    }
 }

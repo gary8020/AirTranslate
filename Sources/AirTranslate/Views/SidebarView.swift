@@ -1,354 +1,12 @@
-import AppKit
 import SwiftUI
 
+// Kept as a compatibility wrapper for call sites outside the main window.
 struct SidebarView: View {
     @Bindable var session: TranslationSessionStore
-    @Environment(\.openSettings) private var openSettings
-    @State private var isLibraryPresented = false
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: AirTranslateDesign.sectionSpacing) {
-                brandHeader
-                quickSettingsCard
-                detailsCard
-                if shouldShowAPIKeyCard {
-                    apiKeyCard
-                }
-                storageRow
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 12)
-        }
-        .navigationTitle("AirTranslate")
-        .sheet(isPresented: $isLibraryPresented) {
-            TranscriptLibraryView(session: session)
-        }
+        ConsoleBarView(session: session, isCompact: false)
     }
-
-    private var brandHeader: some View {
-        HStack(spacing: 10) {
-            AppIconMark()
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(AppText.appName)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-
-                SidebarSessionStatus(session: session)
-            }
-
-            Spacer(minLength: 0)
-
-            SidebarPermissionActionButton(session: session)
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 6)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .bottom) {
-            Divider()
-        }
-    }
-
-    private var quickSettingsCard: some View {
-        SidebarCard(
-            title: quickSettingsTitle,
-            headerAccessory: {
-                Image(systemName: "chevron.up")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.secondary)
-            }
-        ) {
-            VStack(spacing: 0) {
-                QuickSettingRow(
-                    title: AppText.localized(english: "Language", korean: "언어", japanese: "言語", chineseSimplified: "语言"),
-                    systemImage: "globe"
-                ) {
-                SidebarLanguageRouteControl(
-                    title: session.languageSummary,
-                    isAutoSourceEnabled: session.isAppleSourceAutoDetectionEnabled
-                        || usesOpenAIAutoLanguageFlow
-                        || session.isUsingGeminiTranscriptionMode,
-                    sourceSelection: quickSourceLanguageBinding,
-                    targetSelection: quickTargetLanguageBinding,
-                    isTranscribeOnlyMode: session.isTranscribeOnlyMode,
-                    isDisabled: isSessionConfigurationLocked,
-                    swap: swapQuickLanguagePairIfConfigurationUnlocked
-                )
-                }
-
-                SidebarDivider()
-
-                QuickSettingRow(
-                    title: AppText.localized(english: "Audio", korean: "오디오", japanese: "オーディオ", chineseSimplified: "音频"),
-                    systemImage: "mic"
-                ) {
-                    if segmentedControlPresentation == .lockedSummary {
-                        SidebarLockedSegmentedValue(
-                            title: AppText.audioInputSource,
-                            value: session.audioInputSource.title
-                        )
-                    } else {
-                        Picker(AppText.audioInputSource, selection: audioInputSourceBinding) {
-                            ForEach(AudioInputSource.allCases) { source in
-                                Text(source.title).tag(source)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .controlSize(.regular)
-                        .accessibilityLabel(AppText.audioInputSource)
-                    }
-                }
-
-                if session.audioInputSource == .microphone {
-                    MicrophoneInputDevicePicker(
-                        selection: microphoneInputDeviceBinding,
-                        devices: session.microphoneInputDevices,
-                        isDisabled: isSessionConfigurationLocked
-                    )
-                    .padding(.horizontal, 10)
-                    .padding(.bottom, 8)
-                }
-
-                SidebarDivider()
-
-                QuickSettingRow(
-                    title: AppText.localized(english: "Output", korean: "출력", japanese: "出力", chineseSimplified: "输出"),
-                    systemImage: "viewfinder"
-                ) {
-                    if session.isTranscribeOnlyMode {
-                        Text(sourceOnlyOutputTitle)
-                            .font(.callout.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                    } else if usesAPIModeOutputControl {
-                        SidebarLiveTranslationButton(
-                            isDisabled: isSessionConfigurationLocked,
-                            action: useTranslationModeIfConfigurationUnlocked
-                        )
-                    } else if segmentedControlPresentation == .lockedSummary {
-                        SidebarLockedSegmentedValue(
-                            title: AppText.outputMode,
-                            value: session.liveOutputMode.title
-                        )
-                    } else {
-                        Picker(AppText.outputMode, selection: liveOutputModeBinding) {
-                            ForEach(LiveOutputMode.allCases) { mode in
-                                Text(mode.title).tag(mode)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .labelsHidden()
-                        .controlSize(.regular)
-                        .accessibilityLabel(AppText.outputMode)
-                    }
-                }
-
-                if !session.isTranscribeOnlyMode {
-                    SidebarVoiceOutputToggle(
-                        isOn: dubbingEnabledBinding,
-                        isDisabled: isSessionConfigurationLocked
-                    )
-                    .padding(.horizontal, 8)
-                    .padding(.top, -4)
-                    .padding(.bottom, session.isDubbingEnabled ? 8 : 13)
-                }
-
-                if !session.isTranscribeOnlyMode, session.isDubbingEnabled {
-                    SidebarVolumeControls(
-                        volume: translatedVoiceVolumeBinding,
-                        isDisabled: isSessionConfigurationLocked
-                    )
-                    .padding(.horizontal, 8)
-                    .padding(.top, -4)
-                    .padding(.bottom, 13)
-                }
-            }
-        }
-        .onAppear {
-            session.refreshModelAvailability()
-            guard !isSessionConfigurationLocked else { return }
-            session.refreshMicrophoneInputDevices()
-            if usesOpenAIAutoLanguageFlow {
-                session.usePreferredLanguageForOpenAIOutput()
-            }
-        }
-    }
-
-    private var detailsCard: some View {
-        let title = AppText.localized(
-            english: "Details",
-            korean: "세부 설정",
-            japanese: "詳細設定",
-            chineseSimplified: "详细设置"
-        )
-        let value = "\(ProcessingEngine.current(for: session).title) · \(session.sessionDurationMode.title)"
-
-        return SidebarActionRow(
-            title: title,
-            detail: value,
-            systemImage: "gearshape"
-        ) {
-            openSettings()
-        }
-        .help(AppText.configureTranslationSettings)
-    }
-
-    private var apiKeyCard: some View {
-        SidebarActionRow(
-            title: missingAPIKeyTitle,
-            detail: SettingsSidebarCopy.apiKeyAction,
-            systemImage: "key.fill",
-            tint: .orange
-        ) {
-            session.requestAPIKeySettings()
-            openSettings()
-        }
-        .help(missingAPIKeyTitle)
-    }
-
-    private var storageRow: some View {
-        SidebarActionRow(
-            title: AppText.library,
-            detail: AppText.manageSavedTranscripts,
-            systemImage: "tray.full"
-        ) {
-            isLibraryPresented = true
-        }
-        .help(AppText.manageSavedTranscripts)
-    }
-
-    private var quickSettingsTitle: String {
-        AppText.localized(
-            english: "Quick Settings",
-            korean: "빠른 설정",
-            japanese: "クイック設定",
-            chineseSimplified: "快速设置"
-        )
-    }
-
-    private var isSessionConfigurationLocked: Bool {
-        SidebarSessionConfigurationAccess.isLocked(
-            isRunning: session.isRunning,
-            isStarting: session.isStarting
-        )
-    }
-
-    private var segmentedControlPresentation: SidebarSegmentedControlPresentation {
-        SidebarSessionConfigurationAccess.segmentedControlPresentation(
-            isRunning: session.isRunning,
-            isStarting: session.isStarting
-        )
-    }
-
-    private var liveOutputModeBinding: Binding<LiveOutputMode> {
-        Binding(
-            get: {
-                session.liveOutputMode
-            },
-            set: { mode in
-                guard !isSessionConfigurationLocked else { return }
-                session.useLiveOutputMode(mode)
-            }
-        )
-    }
-
-    private var audioInputSourceBinding: Binding<AudioInputSource> {
-        lockedSessionConfigurationBinding($session.audioInputSource)
-    }
-
-    private var microphoneInputDeviceBinding: Binding<String> {
-        lockedSessionConfigurationBinding($session.selectedMicrophoneInputDeviceID)
-    }
-
-    private var dubbingEnabledBinding: Binding<Bool> {
-        lockedSessionConfigurationBinding($session.isDubbingEnabled)
-    }
-
-    private var translatedVoiceVolumeBinding: Binding<Double> {
-        lockedSessionConfigurationBinding($session.translatedVoiceVolume)
-    }
-
-    private func lockedSessionConfigurationBinding<Value>(_ binding: Binding<Value>) -> Binding<Value> {
-        Binding(
-            get: { binding.wrappedValue },
-            set: { value in
-                guard !isSessionConfigurationLocked else { return }
-                binding.wrappedValue = value
-            }
-        )
-    }
-
-    private var quickSourceLanguageBinding: Binding<LanguageOption> {
-        Binding {
-            session.sourceLanguage
-        } set: { language in
-            guard !isSessionConfigurationLocked else { return }
-            session.useQuickSourceLanguage(language)
-        }
-    }
-
-    private var quickTargetLanguageBinding: Binding<LanguageOption> {
-        Binding {
-            session.targetLanguage
-        } set: { language in
-            guard !isSessionConfigurationLocked else { return }
-            session.useQuickTargetLanguage(language)
-        }
-    }
-
-    private func useTranslationModeIfConfigurationUnlocked() {
-        guard !isSessionConfigurationLocked else { return }
-        session.useTranslationMode()
-    }
-
-    private func swapQuickLanguagePairIfConfigurationUnlocked() {
-        guard !isSessionConfigurationLocked else { return }
-        session.swapQuickLanguagePair()
-    }
-
-    private var usesOpenAIAutoLanguageFlow: Bool {
-        ProcessingEngine.current(for: session) == .gpt && session.isUsingOpenAIRealtimeTranslation
-    }
-
-    private var usesAPIModeOutputControl: Bool {
-        ProcessingEngine.current(for: session) != .apple
-    }
-
-    private var sourceOnlyOutputTitle: String {
-        session.isUsingGeminiTranscriptionMode
-            ? AppText.localized(
-                english: "Original only",
-                korean: "원문만",
-                japanese: "原文のみ",
-                chineseSimplified: "仅原文"
-            )
-            : AppText.gptTranscriptionSourceOnly
-    }
-
-    private var shouldShowAPIKeyCard: Bool {
-        switch ProcessingEngine.current(for: session) {
-        case .gpt, .gptTranscription:
-            !session.hasOpenAIAPIKey
-        case .gemini:
-            !session.hasGeminiAPIKey
-        case .apple:
-            false
-        }
-    }
-
-    private var missingAPIKeyTitle: String {
-        switch ProcessingEngine.current(for: session) {
-        case .gpt, .gptTranscription:
-            AppText.openAIAPIKeyNotConfigured
-        case .gemini:
-            AppText.geminiAPIKeyNotConfigured
-        case .apple:
-            AppText.openAIAPIKeyNotConfigured
-        }
-    }
-
 }
 
 enum SidebarSessionConfigurationAccess {
@@ -369,167 +27,696 @@ enum SidebarSegmentedControlPresentation: Equatable {
     case lockedSummary
 }
 
-private enum SettingsSidebarCopy {
-    static let apiKeyAction = AppText.localized(
-        english: "Add API key",
-        korean: "API 키 입력",
-        japanese: "APIキーを入力",
-        chineseSimplified: "输入 API key"
-    )
-    static let liveTranslationVolume = AppText.localized(
-        english: "Volume",
-        korean: "음량",
-        japanese: "音量",
-        chineseSimplified: "音量"
-    )
-    static let lockedDuringCapture = AppText.localized(
-        english: "Locked during capture",
-        korean: "캡처 중 잠김",
-        japanese: "キャプチャ中はロック中",
-        chineseSimplified: "采集期间已锁定"
-    )
-}
-
-private struct SidebarLockedSegmentedValue: View {
-    let title: String
-    let value: String
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "lock.fill")
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-            Spacer(minLength: 0)
-            Text(SettingsSidebarCopy.lockedDuringCapture)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title), \(SettingsSidebarCopy.lockedDuringCapture)")
-        .accessibilityValue(value)
-    }
-}
-
-private enum ProcessingEngine: String, CaseIterable, Identifiable {
+enum ProcessingEngine: String, CaseIterable, Identifiable {
     case apple
     case gpt
     case gptTranscription
     case gemini
+    case meta
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .apple:
-            AppText.localized(
-                english: "Apple Mode",
-                korean: "Apple 기본 모드",
-                japanese: "Apple標準モード",
-                chineseSimplified: "Apple 默认模式"
-            )
-        case .gpt:
-            AppText.localized(
-                english: "GPT Mode",
-                korean: "GPT 모드",
-                japanese: "GPTモード",
-                chineseSimplified: "GPT 模式"
-            )
-        case .gptTranscription:
-            AppText.gptTranscriptionMode
-        case .gemini:
-            AppText.localized(
-                english: "Gemini Live",
-                korean: "Gemini Live",
-                japanese: "Gemini Live",
-                chineseSimplified: "Gemini Live"
-            )
+        case .apple: AppText.appleProcessingMode
+        case .gpt: AppText.gptMode
+        case .gptTranscription: AppText.gptTranscriptionMode
+        case .gemini: AppText.geminiModels
+        case .meta: AppText.metaScribe
         }
     }
 
     @MainActor
     static func current(for session: TranslationSessionStore) -> ProcessingEngine {
-        if session.isUsingGPTTranscriptionMode {
-            return .gptTranscription
-        }
+        if session.isUsingMetaScribe { return .meta }
+        if session.isUsingGPTTranscriptionMode { return .gptTranscription }
         if session.openAITranscriptionModel.isEnabled || session.openAITranslationModel.isEnabled {
             return .gpt
         }
-        if session.isUsingGemini {
-            return .gemini
-        }
+        if session.isUsingGemini { return .gemini }
         return .apple
     }
 }
 
-private struct SidebarSessionStatus: View {
-    let session: TranslationSessionStore
+struct StageHeaderView: View {
+    @Bindable var session: TranslationSessionStore
+    @Environment(\.openSettings) private var openSettings
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            StatusPill(
-                title: statusTitle,
-                symbolName: statusSymbolName,
-                color: statusColor
+        HStack(spacing: AirTranslateDesign.Spacing.sm) {
+            SessionStatusPill(session: session)
+
+            Rectangle()
+                .fill(AirTranslateDesign.Palette.hairline)
+                .frame(width: 1, height: 20)
+
+            Label(session.languageSummary, systemImage: "arrow.triangle.swap")
+                .font(AirTranslateDesign.Typography.label)
+                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+                .lineLimit(1)
+
+            Spacer(minLength: AirTranslateDesign.Spacing.sm)
+
+            Button {
+                if needsAPIKey {
+                    session.requestAPIKeySettings()
+                }
+                openSettings()
+            } label: {
+                AirChip(
+                    text: ProcessingEngine.current(for: session).title,
+                    systemImage: needsAPIKey ? "key.fill" : "cpu",
+                    tint: needsAPIKey
+                        ? AirTranslateDesign.Palette.warning
+                        : AirTranslateDesign.Palette.accent
+                )
+            }
+            .buttonStyle(.plain)
+            .airFocusRing(cornerRadius: 12)
+            .help(needsAPIKey ? missingAPIKeyTitle : AppText.configureTranslationSettings)
+            .accessibilityLabel(AppText.translationSettings)
+            .accessibilityValue(
+                needsAPIKey
+                    ? "\(ProcessingEngine.current(for: session).title), \(missingAPIKeyTitle)"
+                    : ProcessingEngine.current(for: session).title
             )
 
-            if showsDetail {
-                Text(session.statusMessage)
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
+            if session.isUsingMetaScribe && session.isMetaSpeakerLabelsEnabled {
+                AirChip(
+                    text: AppText.speakerLabelsOn,
+                    systemImage: "person.2.fill",
+                    tint: AirTranslateDesign.Palette.textSecondary
+                )
+            }
+
+            PermissionActionButton(session: session)
+        }
+        .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+        .frame(height: 52)
+        .background(AirTranslateDesign.Palette.canvas)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(AirTranslateDesign.Palette.hairline)
+                .frame(height: 1)
+        }
+    }
+
+    private var needsAPIKey: Bool {
+        switch ProcessingEngine.current(for: session) {
+        case .gpt, .gptTranscription: !session.hasOpenAIAPIKey
+        case .gemini: !session.hasGeminiAPIKey
+        case .meta: !session.hasMetaAPIKey
+        case .apple: false
+        }
+    }
+
+    private var missingAPIKeyTitle: String {
+        switch ProcessingEngine.current(for: session) {
+        case .gpt, .gptTranscription: AppText.openAIAPIKeyNotConfigured
+        case .gemini: AppText.geminiAPIKeyNotConfigured
+        case .meta: AppText.metaAPIKeyNotConfigured
+        case .apple: AppText.configureTranslationSettings
+        }
+    }
+}
+
+struct ConsoleBarView: View {
+    @Bindable var session: TranslationSessionStore
+    let isCompact: Bool
+    @Environment(\.openSettings) private var openSettings
+    @State private var showsVolume = false
+    @FocusState private var isCaptureFocused: Bool
+
+    var body: some View {
+        HStack(spacing: AirTranslateDesign.Spacing.sm) {
+            captureButton
+            pauseButton
+
+            consoleDivider
+            if !isConfigurationAvailable {
+                lockGroupIndicator
+            }
+            audioSourceControl
+
+            if session.audioInputSource == .microphone {
+                microphoneControl
+            }
+
+            if isCompact {
+                compactMenu
+            } else {
+                consoleDivider
+                languageControl
+                outputControl
+                voiceControl
+            }
+
+            Spacer(minLength: 0)
+            engineButton
+        }
+        .padding(.horizontal, AirTranslateDesign.Spacing.sm)
+        .padding(.vertical, AirTranslateDesign.Spacing.xs)
+        .frame(maxWidth: 1120)
+        .airConsoleSurface()
+        .onAppear {
+            Task { @MainActor in
+                await Task.yield()
+                isCaptureFocused = true
+            }
+            session.refreshModelAvailability()
+            guard isConfigurationAvailable else { return }
+            session.refreshMicrophoneInputDevices()
+            if usesOpenAIAutoLanguageFlow {
+                session.usePreferredLanguageForOpenAIOutput()
+            }
+        }
+        .popover(isPresented: $showsVolume, arrowEdge: .bottom) {
+            volumePopover
+        }
+    }
+
+    private var captureButton: some View {
+        Button {
+            if session.isRunning || session.isStarting {
+                session.stop()
+            } else {
+                session.start()
+            }
+        } label: {
+            HStack(spacing: AirTranslateDesign.Spacing.xs) {
+                if session.isStarting {
+                    ProgressView()
+                        .controlSize(.small)
+                } else {
+                    Image(systemName: session.isRunning ? "stop.fill" : "play.fill")
+                }
+
+                Text(captureTitle)
                     .lineLimit(1)
-                    .truncationMode(.tail)
-                    .help(session.statusMessage)
+
+                if session.isRunning && !session.isPaused {
+                    AudioLevelWaveform(
+                        level: session.latestAudioLevel,
+                        date: Date(),
+                        barCount: 5,
+                        width: 40,
+                        height: 14,
+                        barWidth: 3,
+                        barSpacing: 2.5,
+                        tint: AirTranslateDesign.Palette.danger
+                    )
+                }
+            }
+        }
+        .buttonStyle(AirPillButtonStyle(kind: captureButtonKind))
+        .airFocusRing(cornerRadius: 22, focus: $isCaptureFocused)
+        .defaultFocus($isCaptureFocused, true)
+        .help(captureTitle)
+        .accessibilityLabel(captureTitle)
+        .accessibilityValue(captureStateDescription)
+    }
+
+    private var pauseButton: some View {
+        Button {
+            session.isPaused ? session.resume() : session.pause()
+        } label: {
+            Image(systemName: session.isPaused ? "play.fill" : "pause.fill")
+        }
+        .buttonStyle(AirIconButton())
+        .airFocusRing(cornerRadius: 18)
+        .disabled(!session.isRunning)
+        .help(session.isPaused ? AppText.resume : AppText.pause)
+        .accessibilityLabel(session.isPaused ? AppText.resume : AppText.pause)
+    }
+
+    @ViewBuilder
+    private var audioSourceControl: some View {
+        if segmentedControlPresentation == .lockedSummary {
+            LockedConsoleSummary(
+                title: AppText.audioInputSource,
+                value: session.audioInputSource.title,
+                systemImage: session.audioInputSource == .microphone ? "mic.fill" : "speaker.wave.2.fill"
+            )
+        } else {
+            Picker(AppText.audioInputSource, selection: audioInputSourceBinding) {
+                ForEach(AudioInputSource.allCases) { source in
+                    Text(source.title).tag(source)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 168)
+            .allowsHitTesting(isConfigurationAvailable)
+            .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
+            .accessibilityLabel(AppText.audioInputSource)
+        }
+    }
+
+    @ViewBuilder
+    private var microphoneControl: some View {
+        if segmentedControlPresentation == .lockedSummary {
+            LockedConsoleSummary(
+                title: AppText.microphoneInputDevice,
+                value: selectedMicrophoneName,
+                systemImage: "mic.circle.fill"
+            )
+        } else {
+            Menu {
+                ForEach(session.microphoneInputDevices) { device in
+                    Button(device.name) {
+                        guard isConfigurationAvailable else { return }
+                        session.selectedMicrophoneInputDeviceID = device.id
+                    }
+                }
+            } label: {
+                Label(selectedMicrophoneName, systemImage: "mic.circle.fill")
+                    .font(AirTranslateDesign.Typography.label)
+                    .lineLimit(1)
+                    .frame(maxWidth: 128)
+            }
+            .menuIndicator(.hidden)
+            .airFocusRing(cornerRadius: AirTranslateDesign.Radius.control)
+            .allowsHitTesting(isConfigurationAvailable)
+            .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
+            .accessibilityLabel(AppText.microphoneInputDevice)
+            .accessibilityValue(selectedMicrophoneName)
+        }
+    }
+
+    @ViewBuilder
+    private var languageControl: some View {
+        if segmentedControlPresentation == .lockedSummary {
+            LockedConsoleSummary(
+                title: AppText.languagePair,
+                value: session.languageSummary,
+                systemImage: "arrow.right"
+            )
+        } else {
+            HStack(spacing: AirTranslateDesign.Spacing.xxs) {
+                languageMenu
+                if !session.isTranscribeOnlyMode {
+                    Button {
+                        guard isConfigurationAvailable else { return }
+                        session.swapQuickLanguagePair()
+                    } label: {
+                        Image(systemName: "arrow.left.arrow.right")
+                    }
+                    .buttonStyle(AirIconButton())
+                    .airFocusRing(cornerRadius: 18)
+                    .allowsHitTesting(isConfigurationAvailable && !usesAutomaticSource)
+                    .accessibilityRespondsToUserInteraction(isConfigurationAvailable && !usesAutomaticSource)
+                    .help(AppText.swapLanguages)
+                    .accessibilityLabel(AppText.swapLanguages)
+                }
             }
         }
     }
 
-    private var showsDetail: Bool {
-        (session.isRunning || session.isPaused) && session.statusMessage != statusTitle
+    private var languageMenu: some View {
+        Menu {
+            if !usesAutomaticSource {
+                Picker(AppText.from, selection: sourceLanguageBinding) {
+                    ForEach(LanguageOption.supported) { language in
+                        Text(language.localizedTitle).tag(language)
+                    }
+                }
+            }
+
+            if !session.isTranscribeOnlyMode {
+                Picker(AppText.to, selection: targetLanguageBinding) {
+                    ForEach(LanguageOption.supported.filter { $0 != session.sourceLanguage }) { language in
+                        Text(language.localizedTitle).tag(language)
+                    }
+                }
+            }
+        } label: {
+            AirChip(
+                text: session.languageSummary,
+                systemImage: "globe",
+                tint: AirTranslateDesign.Palette.textPrimary
+            )
+        }
+        .menuIndicator(.hidden)
+        .airFocusRing(cornerRadius: 12)
+        .allowsHitTesting(isConfigurationAvailable)
+        .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
+        .accessibilityLabel(AppText.languagePair)
+        .accessibilityValue(session.languageSummary)
     }
 
-    private var statusTitle: String {
-        if session.isPaused {
-            return AppText.paused
+    @ViewBuilder
+    private var outputControl: some View {
+        if session.isTranscribeOnlyMode {
+            AirChip(
+                text: sourceOnlyOutputTitle,
+                systemImage: "text.alignleft",
+                tint: AirTranslateDesign.Palette.textSecondary
+            )
+        } else if segmentedControlPresentation == .lockedSummary {
+            LockedConsoleSummary(
+                title: AppText.outputMode,
+                value: usesAPIModeOutputControl ? AppText.liveTranslation : session.liveOutputMode.title,
+                systemImage: "waveform"
+            )
+        } else if usesAPIModeOutputControl {
+            Button {
+                guard isConfigurationAvailable else { return }
+                session.useTranslationMode()
+            } label: {
+                AirChip(
+                    text: AppText.liveTranslation,
+                    systemImage: "waveform.badge.magnifyingglass",
+                    tint: AirTranslateDesign.Palette.accent
+                )
+            }
+            .buttonStyle(.plain)
+            .airFocusRing(cornerRadius: 12)
+            .allowsHitTesting(isConfigurationAvailable)
+            .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
+            .accessibilityLabel(AppText.liveTranslation)
+        } else {
+            Picker(AppText.outputMode, selection: liveOutputModeBinding) {
+                ForEach(LiveOutputMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(width: 150)
+            .allowsHitTesting(isConfigurationAvailable)
+            .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
+            .accessibilityLabel(AppText.outputMode)
         }
-        if session.isRunning {
-            return AppText.listening
+    }
+
+    @ViewBuilder
+    private var voiceControl: some View {
+        if !session.isTranscribeOnlyMode {
+            if segmentedControlPresentation == .lockedSummary {
+                LockedConsoleSummary(
+                    title: AppText.voiceOutput,
+                    value: AppText.voiceShort,
+                    systemImage: session.isDubbingEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill",
+                    spokenValue: session.isDubbingEnabled
+                        ? AppText.floatingCaptionPowerOn
+                        : AppText.floatingCaptionPowerOff
+                )
+            } else {
+                HStack(spacing: AirTranslateDesign.Spacing.xxs) {
+                    Button {
+                        guard isConfigurationAvailable else { return }
+                        session.isDubbingEnabled.toggle()
+                    } label: {
+                        Image(systemName: session.isDubbingEnabled ? "speaker.wave.2.fill" : "speaker.slash.fill")
+                    }
+                    .buttonStyle(AirIconButton())
+                    .airFocusRing(cornerRadius: 18)
+                    .allowsHitTesting(isConfigurationAvailable)
+                    .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
+                    .accessibilityLabel(AppText.voiceOutput)
+                    .accessibilityValue(session.isDubbingEnabled ? AppText.floatingCaptionPowerOn : AppText.floatingCaptionPowerOff)
+
+                    if session.isDubbingEnabled {
+                        Button {
+                            showsVolume.toggle()
+                        } label: {
+                            Text(volumePercent)
+                                .font(AirTranslateDesign.Typography.meta.monospacedDigit())
+                                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                        }
+                        .buttonStyle(.plain)
+                        .airFocusRing(cornerRadius: AirTranslateDesign.Radius.control)
+                        .allowsHitTesting(isConfigurationAvailable)
+                        .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
+                        .accessibilityLabel(AppText.volume)
+                        .accessibilityValue(volumePercent)
+                    }
+                }
+            }
         }
+    }
+
+    private var compactMenu: some View {
+        Menu {
+            Section(AppText.languages) {
+                if segmentedControlPresentation == .lockedSummary {
+                    Text(session.languageSummary)
+                } else {
+                    Picker(AppText.from, selection: sourceLanguageBinding) {
+                        ForEach(LanguageOption.supported) { language in
+                            Text(language.localizedTitle).tag(language)
+                        }
+                    }
+                    if !session.isTranscribeOnlyMode {
+                        Picker(AppText.to, selection: targetLanguageBinding) {
+                            ForEach(LanguageOption.supported.filter { $0 != session.sourceLanguage }) { language in
+                                Text(language.localizedTitle).tag(language)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Section(AppText.output) {
+                if session.isTranscribeOnlyMode {
+                    Text(sourceOnlyOutputTitle)
+                } else if segmentedControlPresentation == .lockedSummary {
+                    Text(session.liveOutputMode.title)
+                } else if usesAPIModeOutputControl {
+                    Button(AppText.liveTranslation) {
+                        guard isConfigurationAvailable else { return }
+                        session.useTranslationMode()
+                    }
+                } else {
+                    Picker(AppText.outputMode, selection: liveOutputModeBinding) {
+                        ForEach(LiveOutputMode.allCases) { mode in
+                            Text(mode.title).tag(mode)
+                        }
+                    }
+                }
+            }
+
+            if !session.isTranscribeOnlyMode {
+                Section(AppText.voiceOutput) {
+                    if segmentedControlPresentation == .lockedSummary {
+                        Text(session.isDubbingEnabled ? AppText.floatingCaptionPowerOn : AppText.floatingCaptionPowerOff)
+                    } else {
+                        Button(session.isDubbingEnabled ? AppText.turnVoiceOutputOff : AppText.turnVoiceOutputOn) {
+                            guard isConfigurationAvailable else { return }
+                            session.isDubbingEnabled.toggle()
+                        }
+                        if session.isDubbingEnabled {
+                            Button("\(AppText.volume) · \(volumePercent)") {
+                                showsVolume = true
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            Label(AppText.moreControls, systemImage: "ellipsis")
+                .font(AirTranslateDesign.Typography.label)
+                .frame(height: 36)
+        }
+        .menuIndicator(.hidden)
+        .airFocusRing(cornerRadius: AirTranslateDesign.Radius.control)
+        .help(AppText.moreControls)
+        .accessibilityLabel(AppText.moreControls)
+    }
+
+    private var engineButton: some View {
+        Button {
+            openSettings()
+        } label: {
+            AirChip(
+                text: ProcessingEngine.current(for: session).title,
+                systemImage: "cpu",
+                tint: AirTranslateDesign.Palette.textSecondary
+            )
+        }
+        .buttonStyle(.plain)
+        .airFocusRing(cornerRadius: 12)
+        .help(AppText.configureTranslationSettings)
+        .accessibilityLabel(AppText.translationSettings)
+        .accessibilityValue(ProcessingEngine.current(for: session).title)
+    }
+
+    private var volumePopover: some View {
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.sm) {
+            Label(AppText.voiceOutput, systemImage: "speaker.wave.2.fill")
+                .font(AirTranslateDesign.Typography.label)
+                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+            HStack {
+                Image(systemName: "speaker.fill")
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                Slider(value: translatedVoiceVolumeBinding, in: 0...1, step: 0.05)
+                    .frame(width: 180)
+                    .allowsHitTesting(isConfigurationAvailable)
+                    .accessibilityRespondsToUserInteraction(isConfigurationAvailable)
+                Text(volumePercent)
+                    .font(AirTranslateDesign.Typography.meta.monospacedDigit())
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                    .frame(width: 38)
+            }
+        }
+        .padding(AirTranslateDesign.Spacing.md)
+        .background(AirTranslateDesign.Palette.raised)
+    }
+
+    private var consoleDivider: some View {
+        Rectangle()
+            .fill(AirTranslateDesign.Palette.hairline)
+            .frame(width: 1, height: 28)
+    }
+
+    private var lockGroupIndicator: some View {
+        Image(systemName: "lock.fill")
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(AirTranslateDesign.Palette.textTertiary)
+            .help(AppText.lockedDuringSession)
+            .accessibilityLabel(AppText.lockedDuringSession)
+    }
+
+    private var isConfigurationAvailable: Bool {
+        !SidebarSessionConfigurationAccess.isLocked(
+            isRunning: session.isRunning,
+            isStarting: session.isStarting
+        )
+    }
+
+    private var segmentedControlPresentation: SidebarSegmentedControlPresentation {
+        SidebarSessionConfigurationAccess.segmentedControlPresentation(
+            isRunning: session.isRunning,
+            isStarting: session.isStarting
+        )
+    }
+
+    private var captureTitle: String {
+        session.isRunning || session.isStarting ? AppText.stop : AppText.start
+    }
+
+    private var captureStateDescription: String {
+        if session.isStarting { return session.statusMessage }
+        if session.isPaused { return AppText.paused }
+        if session.isRunning { return AppText.listening }
         return session.statusMessage
     }
 
-    private var statusSymbolName: String {
-        if session.isPaused {
-            return "pause.circle.fill"
-        }
-        if session.isRunning {
-            return "waveform.circle.fill"
-        }
-        if session.statusMessage == AppText.ready {
-            return "circle.fill"
-        }
-        return "circle.dotted"
+    private var captureButtonKind: AirPillButtonKind {
+        if session.isPaused { return .paused }
+        if session.isRunning || session.isStarting { return .stop }
+        return .start
     }
 
-    private var statusColor: Color {
-        if session.isPaused {
-            return .orange
-        }
-        if session.isRunning {
-            return .green
-        }
-        if session.statusMessage == AppText.ready {
-            return .green
-        }
-        return .secondary
+    private var audioInputSourceBinding: Binding<AudioInputSource> {
+        guardedBinding($session.audioInputSource)
+    }
+
+    private var liveOutputModeBinding: Binding<LiveOutputMode> {
+        Binding(
+            get: { session.liveOutputMode },
+            set: { mode in
+                guard isConfigurationAvailable else { return }
+                session.useLiveOutputMode(mode)
+            }
+        )
+    }
+
+    private var sourceLanguageBinding: Binding<LanguageOption> {
+        Binding(
+            get: { session.sourceLanguage },
+            set: { language in
+                guard isConfigurationAvailable else { return }
+                session.useQuickSourceLanguage(language)
+            }
+        )
+    }
+
+    private var targetLanguageBinding: Binding<LanguageOption> {
+        Binding(
+            get: { session.targetLanguage },
+            set: { language in
+                guard isConfigurationAvailable else { return }
+                session.useQuickTargetLanguage(language)
+            }
+        )
+    }
+
+    private var translatedVoiceVolumeBinding: Binding<Double> {
+        guardedBinding($session.translatedVoiceVolume)
+    }
+
+    private func guardedBinding<Value>(_ binding: Binding<Value>) -> Binding<Value> {
+        Binding(
+            get: { binding.wrappedValue },
+            set: { value in
+                guard isConfigurationAvailable else { return }
+                binding.wrappedValue = value
+            }
+        )
+    }
+
+    private var usesOpenAIAutoLanguageFlow: Bool {
+        ProcessingEngine.current(for: session) == .gpt && session.isUsingOpenAIRealtimeTranslation
+    }
+
+    private var usesAutomaticSource: Bool {
+        session.isAppleSourceAutoDetectionEnabled
+            || usesOpenAIAutoLanguageFlow
+            || session.isUsingGeminiTranscriptionMode
+            || session.isUsingMetaScribe
+    }
+
+    private var usesAPIModeOutputControl: Bool {
+        ProcessingEngine.current(for: session) != .apple
+    }
+
+    private var sourceOnlyOutputTitle: String {
+        session.isUsingGeminiTranscriptionMode ? AppText.originalOnly : AppText.gptTranscriptionSourceOnly
+    }
+
+    private var selectedMicrophoneName: String {
+        session.microphoneInputDevices.first { $0.id == session.selectedMicrophoneInputDeviceID }?.name
+            ?? MicrophoneInputDevice.systemDefault.name
+    }
+
+    private var volumePercent: String {
+        "\(Int((session.translatedVoiceVolume * 100).rounded()))%"
     }
 }
 
-private struct SidebarPermissionActionButton: View {
+private struct SessionStatusPill: View {
+    let session: TranslationSessionStore
+
+    var body: some View {
+        AirChip(text: title, systemImage: symbolName, tint: tint)
+            .accessibilityLabel(title)
+            .accessibilityValue(session.statusMessage)
+    }
+
+    private var title: String {
+        if session.isPaused { return AppText.paused }
+        if session.isRunning { return AppText.listening }
+        return session.statusMessage
+    }
+
+    private var symbolName: String {
+        if session.isPaused { return "pause.circle.fill" }
+        if session.isRunning { return "waveform.circle.fill" }
+        if session.statusMessage == AppText.ready { return "checkmark.circle.fill" }
+        return "circle.dotted"
+    }
+
+    private var tint: Color {
+        if session.isPaused { return AirTranslateDesign.Palette.paused }
+        if session.isRunning || session.statusMessage == AppText.ready {
+            return AirTranslateDesign.Palette.live
+        }
+        return AirTranslateDesign.Palette.textSecondary
+    }
+}
+
+struct PermissionActionButton: View {
     let session: TranslationSessionStore
 
     var body: some View {
@@ -537,469 +724,42 @@ private struct SidebarPermissionActionButton: View {
             Button {
                 session.openPrivacySettings()
             } label: {
-                Image(systemName: "lock.shield.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(Color.orange)
-                    .frame(width: 28, height: 28)
-                    .background(Color.orange.opacity(0.13), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                Label(AppText.openPrivacySettings, systemImage: "lock.shield.fill")
+                    .font(AirTranslateDesign.Typography.label)
+                    .foregroundStyle(AirTranslateDesign.Palette.warning)
             }
             .buttonStyle(.plain)
+            .airFocusRing(cornerRadius: AirTranslateDesign.Radius.control)
             .help(AppText.openPrivacySettings)
             .accessibilityLabel(AppText.openPrivacySettings)
         }
     }
 
-    private var needsPermissionAction: Bool {
+    var needsPermissionAction: Bool {
         session.statusMessage.localizedCaseInsensitiveContains("permission")
             || session.statusMessage.localizedCaseInsensitiveContains("권한")
+            || session.statusMessage.localizedCaseInsensitiveContains("権限")
+            || session.statusMessage.localizedCaseInsensitiveContains("权限")
     }
 }
 
-private struct StatusPill: View {
+private struct LockedConsoleSummary: View {
     let title: String
-    let symbolName: String
-    let color: Color
-
-    var body: some View {
-        Label {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
-        } icon: {
-            Image(systemName: symbolName)
-                .font(.caption2.weight(.bold))
-        }
-        .foregroundStyle(color)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(color.opacity(0.14), in: Capsule())
-        .help(title)
-        .accessibilityLabel(title)
-    }
-}
-
-private struct QuickSettingRow<Content: View>: View {
-    let title: String
+    let value: String
     let systemImage: String
-    @ViewBuilder let content: Content
+    var spokenValue: String? = nil
 
     var body: some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                rowLabel
-                    .frame(minWidth: 72, alignment: .leading)
-
-                content
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            .frame(minWidth: 220)
-
-            VStack(alignment: .leading, spacing: 8) {
-                rowLabel
-                content
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 9)
-        .frame(maxWidth: .infinity, minHeight: 50, alignment: .leading)
-    }
-
-    private var rowLabel: some View {
-        Label {
-            Text(title)
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.primary)
-                .lineLimit(2)
-        } icon: {
-            Image(systemName: systemImage)
-                .font(.callout.weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: AirTranslateDesign.iconRegular, height: AirTranslateDesign.iconRegular)
-        }
-        .labelStyle(.titleAndIcon)
-    }
-}
-
-private struct SidebarDivider: View {
-    var body: some View {
-        Rectangle()
-            .fill(AirTranslateDesign.separator.opacity(0.55))
-            .frame(height: 1)
-            .padding(.horizontal, 8)
-    }
-}
-
-private struct SidebarLanguageRouteControl: View {
-    let title: String
-    let isAutoSourceEnabled: Bool
-    @Binding var sourceSelection: LanguageOption
-    @Binding var targetSelection: LanguageOption
-    let isTranscribeOnlyMode: Bool
-    let isDisabled: Bool
-    let swap: () -> Void
-
-    var body: some View {
-        HStack(spacing: 8) {
-            if isAutoSourceEnabled && isTranscribeOnlyMode {
-                Text(title)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-                    .accessibilityLabel(AppText.from)
-                    .accessibilityValue(title)
-                    .accessibilityHint(
-                        AppText.localized(
-                            english: "Gemini detects the spoken language during capture.",
-                            korean: "Gemini가 캡처 중 말하는 언어를 자동 감지합니다.",
-                            japanese: "Geminiがキャプチャ中の話し言葉を自動検出します。",
-                            chineseSimplified: "Gemini 会在采集过程中自动检测口语。"
-                        )
-                    )
-            } else {
-                Menu {
-                    if !isAutoSourceEnabled {
-                        Picker(AppText.from, selection: $sourceSelection) {
-                            ForEach(LanguageOption.supported) { language in
-                                Text(language.localizedTitle).tag(language)
-                            }
-                        }
-                    }
-
-                    if !isTranscribeOnlyMode {
-                        Picker(AppText.to, selection: $targetSelection) {
-                            ForEach(targetLanguageOptions) { language in
-                                Text(language.localizedTitle).tag(language)
-                            }
-                        }
-                    }
-                } label: {
-                    Text(title)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                }
-                .menuIndicator(.hidden)
-                .buttonStyle(.plain)
-                .disabled(isDisabled)
-                .help(title)
-                .accessibilityLabel(languageRouteAccessibilityLabel)
-                .accessibilityValue(title)
-            }
-
-            if !isTranscribeOnlyMode {
-                Button {
-                    swap()
-                } label: {
-                    Image(systemName: "arrow.left.arrow.right")
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 34, height: 34)
-                        .background(Color.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 9, style: .continuous)
-                                .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
-                        }
-                }
-                .buttonStyle(.plain)
-                .disabled(isDisabled || isAutoSourceEnabled)
-                .help(AppText.swapLanguages)
-                .accessibilityLabel(AppText.swapLanguages)
-            }
-        }
-    }
-
-    private var languageRouteAccessibilityLabel: String {
-        isTranscribeOnlyMode
-            ? AppText.from
-            : AppText.localized(
-                english: "Language pair",
-                korean: "언어 조합",
-                japanese: "言語ペア",
-                chineseSimplified: "语言组合"
-            )
-    }
-
-    private var targetLanguageOptions: [LanguageOption] {
-        LanguageOption.supported.filter { $0 != sourceSelection }
-    }
-}
-
-private struct MicrophoneInputDevicePicker: View {
-    @Binding var selection: String
-    let devices: [MicrophoneInputDevice]
-    let isDisabled: Bool
-
-    var body: some View {
-        Menu {
-            ForEach(devices) { device in
-                Button(device.name) {
-                    selection = device.id
-                }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: "mic.circle.fill")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 16)
-
-                Text(AppText.microphoneInputDevice)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-
-                Spacer(minLength: 6)
-
-                Text(selectedDeviceName)
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.76)
-
-                Image(systemName: "chevron.up.chevron.down")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity, minHeight: 38, alignment: .leading)
-            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .help(AppText.microphoneInputDevice)
-        .accessibilityLabel(AppText.microphoneInputDevice)
-        .accessibilityValue(selectedDeviceName)
-    }
-
-    private var selectedDeviceName: String {
-        devices.first { $0.id == selection }?.name ?? MicrophoneInputDevice.systemDefault.name
-    }
-}
-
-private struct SidebarLiveTranslationButton: View {
-    let isDisabled: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Label {
-                Text(AppText.liveTranslation)
-                    .font(.callout.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
-            } icon: {
-                Image(systemName: "waveform.badge.magnifyingglass")
-                    .font(.callout.weight(.semibold))
-            }
-            .foregroundStyle(Color.accentColor)
-            .frame(maxWidth: .infinity, minHeight: 34)
-            .padding(.horizontal, 12)
-            .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: 9, style: .continuous)
-                    .strokeBorder(Color.accentColor.opacity(0.24), lineWidth: 1)
-            }
-        }
-        .buttonStyle(.plain)
-        .disabled(isDisabled)
-        .help(AppText.liveTranslation)
-        .accessibilityLabel(AppText.liveTranslation)
-    }
-}
-
-private struct SidebarVoiceOutputToggle: View {
-    @Binding var isOn: Bool
-    let isDisabled: Bool
-
-    var body: some View {
-        Toggle(isOn: $isOn) {
-            Label {
-                Text(AppText.voiceOutput)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-            } icon: {
-                Image(systemName: isOn ? "speaker.wave.2.fill" : "speaker.slash.fill")
-                    .font(.caption.weight(.semibold))
-            }
-            .foregroundStyle(isOn ? Color.accentColor : Color.secondary)
-        }
-        .toggleStyle(.switch)
-        .controlSize(.small)
-        .padding(10)
-        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .disabled(isDisabled)
-        .accessibilityLabel(AppText.voiceOutput)
-        .accessibilityValue(isOn ? AppText.floatingCaptionPowerOn : AppText.floatingCaptionPowerOff)
-    }
-}
-
-private struct SidebarVolumeControls: View {
-    @Binding var volume: Double
-    let isDisabled: Bool
-
-    var body: some View {
-        SidebarMiniVolumeSlider(
-            title: SettingsSidebarCopy.liveTranslationVolume,
-            systemImage: "speaker.wave.2",
-            value: $volume,
-            range: 0...1
-        )
-        .padding(10)
-        .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-        .disabled(isDisabled)
-        .accessibilityElement(children: .contain)
-    }
-}
-
-private struct SidebarMiniVolumeSlider: View {
-    let title: String
-    let systemImage: String
-    @Binding var value: Double
-    let range: ClosedRange<Double>
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Label {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
-            } icon: {
-                Image(systemName: systemImage)
-                    .font(.caption.weight(.semibold))
-            }
-            .foregroundStyle(Color.secondary)
-            .frame(width: 58, alignment: .leading)
-
-            Slider(value: $value, in: range, step: 0.05)
-                .controlSize(.small)
-
-            Text("\(Int((value * 100).rounded()))%")
-                .font(.caption2.monospacedDigit().weight(.semibold))
-                .foregroundStyle(.secondary)
-                .frame(width: 34, alignment: .trailing)
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(title)
-        .accessibilityValue("\(Int((value * 100).rounded()))%")
-    }
-}
-
-private struct AppIconMark: View {
-    private var appIcon: NSImage {
-        NSImage(named: "AppIcon") ?? NSApp.applicationIconImage
-    }
-
-    var body: some View {
-        Image(nsImage: appIcon)
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .frame(width: 38, height: 38)
-            .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
-            .shadow(color: Color.black.opacity(0.12), radius: 3, x: 0, y: 1)
-            .accessibilityHidden(true)
-    }
-}
-
-private struct SidebarCard<Content: View, HeaderAccessory: View>: View {
-    let title: String?
-    @ViewBuilder let headerAccessory: HeaderAccessory
-    @ViewBuilder let content: Content
-
-    init(title: String? = nil, @ViewBuilder content: () -> Content) where HeaderAccessory == EmptyView {
-        self.title = title
-        self.headerAccessory = EmptyView()
-        self.content = content()
-    }
-
-    init(
-        title: String? = nil,
-        @ViewBuilder headerAccessory: () -> HeaderAccessory,
-        @ViewBuilder content: () -> Content
-    ) {
-        self.title = title
-        self.headerAccessory = headerAccessory()
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            if let title {
-                HStack(spacing: 8) {
-                    Text(title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
-
-                    Spacer(minLength: 0)
-
-                    headerAccessory
-                }
-            }
-
-            content
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .overlay(alignment: .top) {
-            Divider()
-        }
-        .overlay(alignment: .bottom) {
-            Divider()
-        }
-    }
-}
-
-private struct SidebarActionRow: View {
-    let title: String
-    let detail: String
-    let systemImage: String
-    var tint: Color = .secondary
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            HStack(spacing: 9) {
-                Image(systemName: systemImage)
-                    .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
-                    .foregroundStyle(tint)
-                    .frame(width: 22)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(tint)
-                        .lineLimit(1)
-                }
-
-                Spacer(minLength: 4)
-
-                Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 7)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(AirTranslatePressButtonStyle())
-        .airTranslateInteractiveSurface()
-        .overlay(alignment: .bottom) {
-            Divider()
-                .padding(.leading, 39)
-        }
+        Label(value, systemImage: systemImage)
+            .font(AirTranslateDesign.Typography.label)
+            .foregroundStyle(AirTranslateDesign.Palette.textTertiary)
+            .lineLimit(1)
+            .padding(.horizontal, AirTranslateDesign.Spacing.xs)
+            .frame(height: 32)
+            .background(AirTranslateDesign.Palette.raisedHover, in: Capsule())
+            .opacity(0.7)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(title)
+            .accessibilityValue("\(spokenValue ?? value), \(AppText.lockedDuringSession)")
     }
 }

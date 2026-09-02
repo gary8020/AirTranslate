@@ -7,25 +7,20 @@ struct MenuBarStatusView: View {
     @State private var isFloatingCaptionVisible = FloatingCaptionWindowController.isOpen
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.sm) {
             header
 
             actionGrid
 
-            Divider()
-
             displayModeGrid
-
-            Divider()
 
             captionFormatControls
 
-            Divider()
-
             appControls
         }
-        .padding(12)
-        .frame(width: 330)
+        .padding(AirTranslateDesign.Spacing.md)
+        .frame(width: 350)
+        .tint(AirTranslateDesign.Palette.accent)
         .background(.regularMaterial)
         .onAppear {
             syncFloatingCaptionVisibility()
@@ -36,20 +31,32 @@ struct MenuBarStatusView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 9) {
+        HStack(alignment: .center, spacing: AirTranslateDesign.Spacing.sm) {
             Image(systemName: statusSymbolName)
                 .font(.system(size: AirTranslateDesign.iconLarge, weight: .semibold))
                 .foregroundStyle(statusColor)
-                .frame(width: 26, height: 26)
+                .frame(width: 40, height: 40)
+                .background(
+                    statusBackgroundColor,
+                    in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
+                )
 
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
                 Text(AppText.floatingCaptions)
-                    .font(.headline)
+                    .font(AirTranslateDesign.Typography.stageTitle)
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
-                Text(session.statusMessage)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                HStack(spacing: AirTranslateDesign.Spacing.xs) {
+                    Circle()
+                        .fill(statusColor)
+                        .frame(width: 7, height: 7)
+                        .accessibilityHidden(true)
+
+                    Text(session.statusMessage)
+                        .font(AirTranslateDesign.Typography.meta)
+                        .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                        .lineLimit(2)
+                }
             }
 
             Spacer(minLength: 0)
@@ -57,7 +64,7 @@ struct MenuBarStatusView: View {
     }
 
     private var actionGrid: some View {
-        VStack(spacing: 2) {
+        VStack(spacing: AirTranslateDesign.Spacing.xxs) {
             Button {
                 toggleCapture()
             } label: {
@@ -65,7 +72,7 @@ struct MenuBarStatusView: View {
                     systemImage: capturePhase.actionSystemImage,
                     title: capturePhase.actionTitle,
                     subtitle: capturePhase.actionSubtitle(statusMessage: session.statusMessage),
-                    accentColor: captureActionColor,
+                    tint: captureActionColor,
                     isSelected: capturePhase == .idle
                 )
             }
@@ -83,7 +90,7 @@ struct MenuBarStatusView: View {
                         ? AppText.hideFloatingCaptions
                         : AppText.showFloatingCaptions,
                     subtitle: isFloatingCaptionVisible ? AppText.floatingCaptionPowerOn : AppText.floatingCaptionPowerOff,
-                    accentColor: isFloatingCaptionVisible ? .green : .secondary,
+                    tint: isFloatingCaptionVisible ? AirTranslateDesign.Palette.live : AirTranslateDesign.Palette.textSecondary,
                     isSelected: isFloatingCaptionVisible
                 )
             }
@@ -98,9 +105,9 @@ struct MenuBarStatusView: View {
             } label: {
                 IconPanelButtonLabel(
                     systemImage: "macwindow",
-                    title: AppText.localized(english: "Open AirTranslate", korean: "AirTranslate 열기", japanese: "AirTranslateを開く", chineseSimplified: "打开 AirTranslate"),
-                    subtitle: AppText.localized(english: "Main window", korean: "메인 윈도우", japanese: "メインウインドウ", chineseSimplified: "主窗口"),
-                    accentColor: .secondary
+                    title: AppText.openAirTranslate,
+                    subtitle: AppText.mainWindow,
+                    tint: AirTranslateDesign.Palette.textSecondary
                 )
             }
             .buttonStyle(AirTranslatePressButtonStyle())
@@ -114,17 +121,19 @@ struct MenuBarStatusView: View {
                         systemImage: session.isPaused ? "play.fill" : "pause.fill",
                         title: session.isPaused ? AppText.resume : AppText.pause,
                         subtitle: session.isPaused ? AppText.paused : AppText.menuBarRunningTitle,
-                        accentColor: session.isPaused ? .accentColor : .orange,
+                        tint: session.isPaused ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.paused,
                         isSelected: session.isPaused
                     )
                 }
                 .buttonStyle(AirTranslatePressButtonStyle())
             }
         }
+        .padding(AirTranslateDesign.Spacing.xs)
+        .airRaisedSurface()
     }
 
     private var displayModeGrid: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
             ControlSectionHeader(
                 systemImage: "rectangle.split.2x1",
                 title: AppText.floatingDisplay
@@ -144,17 +153,19 @@ struct MenuBarStatusView: View {
                     .buttonStyle(AirTranslatePressButtonStyle())
                     .help(mode.title)
                     .accessibilityLabel(mode.title)
-                    .accessibilityValue(session.floatingCaptionDisplayMode == mode ? AppText.localized(english: "Selected", korean: "선택됨", japanese: "選択中", chineseSimplified: "已选择") : "")
+                    .accessibilityValue(session.floatingCaptionDisplayMode == mode ? AppText.selected : "")
                 }
             }
         }
+        .padding(AirTranslateDesign.Spacing.sm)
+        .airRaisedSurface()
     }
 
     private var captionFormatControls: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
             ControlSectionHeader(
                 systemImage: "slider.horizontal.3",
-                title: AppText.localized(english: "Caption Style", korean: "자막 스타일", japanese: "字幕スタイル", chineseSimplified: "字幕样式")
+                title: AppText.captionStyle
             )
 
             HStack(spacing: 8) {
@@ -167,7 +178,7 @@ struct MenuBarStatusView: View {
                 } label: {
                     IconMenuLabel(
                         systemImage: "textformat.size",
-                        title: AppText.localized(english: "Size", korean: "크기", japanese: "サイズ", chineseSimplified: "大小"),
+                        title: AppText.size,
                         value: session.floatingCaptionTextSize.title
                     )
                 }
@@ -184,7 +195,7 @@ struct MenuBarStatusView: View {
                 } label: {
                     IconMenuLabel(
                         systemImage: "line.3.horizontal",
-                        title: AppText.localized(english: "Lines", korean: "줄 수", japanese: "行数", chineseSimplified: "行数"),
+                        title: AppText.lines,
                         value: session.floatingCaptionLineCount.title
                     )
                 }
@@ -193,6 +204,8 @@ struct MenuBarStatusView: View {
                 .help(AppText.floatingLineCount)
             }
         }
+        .padding(AirTranslateDesign.Spacing.sm)
+        .airRaisedSurface()
     }
 
     private var appControls: some View {
@@ -201,30 +214,28 @@ struct MenuBarStatusView: View {
                 NSApp.activate(ignoringOtherApps: true)
                 openSettings()
             } label: {
-                Label(
-                    AppText.localized(english: "Settings", korean: "설정", japanese: "設定", chineseSimplified: "设置"),
-                    systemImage: "gearshape"
+                AirChip(
+                    text: AppText.settings,
+                    systemImage: "gearshape",
+                    tint: AirTranslateDesign.Palette.textSecondary
                 )
-                .font(.caption.weight(.semibold))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help(AppText.localized(english: "Open Settings", korean: "설정 열기", japanese: "設定を開く", chineseSimplified: "打开设置"))
+            .help(AppText.openSettings)
 
             Spacer(minLength: 0)
 
             Button {
                 NSApp.terminate(nil)
             } label: {
-                Label(
-                    AppText.localized(english: "Quit", korean: "종료", japanese: "終了", chineseSimplified: "退出"),
-                    systemImage: "power"
+                AirChip(
+                    text: AppText.quit,
+                    systemImage: "power",
+                    tint: AirTranslateDesign.Palette.danger
                 )
-                .font(.caption.weight(.semibold))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .help(AppText.localized(english: "Quit AirTranslate", korean: "AirTranslate 종료", japanese: "AirTranslateを終了", chineseSimplified: "退出 AirTranslate"))
+            .help(AppText.quitAirTranslate)
         }
     }
 
@@ -244,11 +255,22 @@ struct MenuBarStatusView: View {
     private var statusColor: Color {
         switch capturePhase {
         case .idle:
-            .secondary
+            AirTranslateDesign.Palette.textSecondary
         case .starting, .paused:
-            .orange
+            AirTranslateDesign.Palette.paused
         case .running:
-            .green
+            AirTranslateDesign.Palette.live
+        }
+    }
+
+    private var statusBackgroundColor: Color {
+        switch capturePhase {
+        case .idle:
+            AirTranslateDesign.Palette.raisedHover
+        case .starting, .paused:
+            AirTranslateDesign.Palette.pausedSoft
+        case .running:
+            AirTranslateDesign.Palette.liveSoft
         }
     }
 
@@ -263,9 +285,9 @@ struct MenuBarStatusView: View {
     private var captureActionColor: Color {
         switch capturePhase {
         case .idle:
-            .accentColor
+            AirTranslateDesign.Palette.accent
         case .starting, .running, .paused:
-            .red
+            AirTranslateDesign.Palette.danger
         }
     }
 
@@ -291,7 +313,7 @@ struct MenuBarStatusView: View {
         case .original:
             AppText.originalOnly
         case .originalAndTranslation:
-            AppText.localized(english: "Both", korean: "원문+번역", japanese: "両方", chineseSimplified: "两者")
+            AppText.both
         case .translation:
             AppText.translationOnly
         }
@@ -356,8 +378,10 @@ private struct ControlSectionHeader: View {
 
     var body: some View {
         Label(title, systemImage: systemImage)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(.secondary)
+            .font(AirTranslateDesign.Typography.sectionLabel)
+            .tracking(0.6)
+            .textCase(.uppercase)
+            .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
     }
 }
 
@@ -365,26 +389,26 @@ private struct IconPanelButtonLabel: View {
     let systemImage: String
     let title: String
     let subtitle: String
-    let accentColor: Color
+    let tint: Color
     var isSelected = false
 
     var body: some View {
         HStack(spacing: 9) {
             Image(systemName: systemImage)
                 .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
-                .foregroundStyle(accentColor)
+                .foregroundStyle(tint)
                 .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .font(AirTranslateDesign.Typography.label.weight(.semibold))
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
 
                 Text(subtitle)
-                    .font(.caption2.weight(.medium))
-                    .foregroundStyle(accentColor)
+                    .font(AirTranslateDesign.Typography.meta.weight(.medium))
+                    .foregroundStyle(tint)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
@@ -393,12 +417,12 @@ private struct IconPanelButtonLabel: View {
 
             Image(systemName: "chevron.right")
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(AirTranslateDesign.Palette.textTertiary)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, minHeight: 38)
-        .airTranslateInteractiveSurface(isSelected: isSelected, tint: accentColor)
+        .airTranslateInteractiveSurface(isSelected: isSelected, tint: tint)
         .contentShape(RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous))
     }
 }
@@ -418,7 +442,7 @@ private struct IconChoiceLabel: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
         }
-        .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+        .foregroundStyle(isSelected ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textPrimary)
         .padding(.horizontal, 7)
         .padding(.vertical, 6)
         .frame(maxWidth: .infinity, minHeight: 34)
@@ -436,17 +460,17 @@ private struct IconMenuLabel: View {
         HStack(spacing: 8) {
             Image(systemName: systemImage)
                 .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(AirTranslateDesign.Palette.accent)
                 .frame(width: 22)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(AirTranslateDesign.Typography.meta.weight(.semibold))
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
 
                 Text(value)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .font(AirTranslateDesign.Typography.label.weight(.semibold))
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
@@ -455,7 +479,7 @@ private struct IconMenuLabel: View {
 
             Image(systemName: "chevron.up.chevron.down")
                 .font(.caption.weight(.bold))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 6)

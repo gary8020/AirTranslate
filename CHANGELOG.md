@@ -2,6 +2,18 @@
 
 All notable changes to AirTranslate are documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Meta Scribe mode powered by Muse Voice Transcribe adds realtime transcription, speaker labels, and 25-language code-switching before AirTranslate's existing translation layer.
+
+### Changed
+
+- Redesigned the whole app around a "Stage & Console" layout. The main window no longer uses a settings sidebar: live captions fill the window as turn-based blocks (source line above a larger translated line, speaker chip when available, newest turn anchored just above the console), and a floating console bar at the bottom holds Start/Stop with a live audio meter, Pause, audio source, language route, output mode, voice output and volume, and the active engine badge. On narrow windows the secondary controls collapse into a More menu.
+- Introduced a shared design system (adaptive "Air teal" accent, listening/paused/stopped state colors, layered surfaces, a typography scale for captions and UI, spacing/radius/elevation/motion tokens) applied consistently across the main window, Settings, transcript library, floating captions, and menu bar, in both light and dark appearance.
+- Keyboard focus now uses an accent-colored focus ring across custom controls, the Start button receives initial focus, and session-locked controls are shown dimmed with a single lock indicator while remaining fully described to assistive technologies.
+
 ## 1.6.2 - 2026-08-27
 
 ### Fixed

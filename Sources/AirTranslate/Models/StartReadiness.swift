@@ -3,6 +3,7 @@ import Foundation
 enum StartReadinessIssue: Equatable {
     case openAIAPIKeyMissing
     case geminiAPIKeyMissing
+    case metaAPIKeyMissing
     case localAssetsChecking
     case localAssetsDownloadRequired
     case localAssetsUnavailable(String)
@@ -22,6 +23,8 @@ enum StartReadinessPolicy {
         hasOpenAIAPIKey: Bool,
         requiresGeminiAPIKey: Bool = false,
         hasGeminiAPIKey: Bool = false,
+        requiresMetaAPIKey: Bool = false,
+        hasMetaAPIKey: Bool = false,
         requiredLocalModelAvailability: ModelAvailability?
     ) -> StartReadinessAssessment {
         if requiresOpenAIAPIKey, !hasOpenAIAPIKey {
@@ -29,6 +32,9 @@ enum StartReadinessPolicy {
         }
         if requiresGeminiAPIKey, !hasGeminiAPIKey {
             return StartReadinessAssessment(issue: .geminiAPIKeyMissing)
+        }
+        if requiresMetaAPIKey, !hasMetaAPIKey {
+            return StartReadinessAssessment(issue: .metaAPIKeyMissing)
         }
 
         guard let requiredLocalModelAvailability else {

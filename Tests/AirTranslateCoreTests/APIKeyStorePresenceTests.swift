@@ -22,6 +22,15 @@ struct APIKeyStorePresenceTests {
         )
     }
 
+    @Test
+    func metaPresenceCheckDoesNotReadSecretDataOrAllowAuthenticationUI() {
+        verifyPresenceQuery(
+            MetaAPIKeyStore.presenceQuery(),
+            service: "AirTranslate.Meta",
+            account: "MODEL_API_KEY"
+        )
+    }
+
     private func verifyPresenceQuery(
         _ query: [String: Any],
         service: String,

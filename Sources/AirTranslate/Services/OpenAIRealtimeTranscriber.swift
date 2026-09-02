@@ -5,6 +5,7 @@ import Foundation
 enum RealtimeAudioTransportProvider: String, Sendable {
     case openAI
     case gemini
+    case meta
 }
 
 enum RealtimeAudioDropPhase: String, Sendable {

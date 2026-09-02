@@ -18,6 +18,7 @@ struct AirTranslateApp: App {
                     minWidth: AirTranslateDesign.mainWindowMinimumWidth,
                     minHeight: AirTranslateDesign.mainWindowMinimumHeight
                 )
+                .tint(AirTranslateDesign.Palette.accent)
                 .background(MenuBarPanelInstaller(session: session, controller: menuBarPanelController))
         }
         .commands {
@@ -27,6 +28,7 @@ struct AirTranslateApp: App {
 
         Settings {
             SettingsView(session: session)
+                .tint(AirTranslateDesign.Palette.accent)
         }
     }
 }

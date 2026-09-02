@@ -3,47 +3,12 @@ import SwiftUI
 
 struct CaptionBoardView: View {
     @Bindable var session: TranslationSessionStore
-    @State private var isFloatingCaptionVisible = FloatingCaptionWindowController.isOpen
 
     var body: some View {
-        VStack(alignment: .leading, spacing: AirTranslateDesign.sectionSpacing) {
-            CaptionBoardHeader(
-                session: session,
-                isFloatingCaptionVisible: isFloatingCaptionVisible
-            )
-
-            CaptionTranscriptFeed(session: session)
-        }
-        .padding(AirTranslateDesign.workspacePadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear {
-            syncFloatingCaptionVisibility()
-        }
-        .onReceive(NotificationCenter.default.publisher(for: FloatingCaptionWindowController.visibilityDidChangeNotification)) { _ in
-            syncFloatingCaptionVisibility()
-        }
-    }
-
-    private func syncFloatingCaptionVisibility() {
-        isFloatingCaptionVisible = FloatingCaptionWindowController.isOpen
-    }
-}
-
-private struct CaptionBoardHeader: View {
-    @Bindable var session: TranslationSessionStore
-    let isFloatingCaptionVisible: Bool
-
-    var body: some View {
-        SessionOverviewCard(
-            session: session,
-            title: AppText.transcriptWorkspace,
-            subtitle: session.languageSummary,
-            isRunning: session.isRunning,
-            isStarting: session.isStarting,
-            isPaused: session.isPaused,
-            statusMessage: session.statusMessage,
-            isFloatingCaptionVisible: isFloatingCaptionVisible
-        )
+        CaptionTranscriptFeed(session: session)
+            .frame(maxWidth: 928, maxHeight: .infinity)
+            .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
@@ -51,6 +16,7 @@ private struct CaptionTranscriptFeed: View {
     @Bindable var session: TranslationSessionStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var longSessionAutoScrollTask: Task<Void, Never>?
+    @State private var isFollowingLatest = true
 
     private struct LatestLineKey: Equatable {
         let id: UUID
@@ -63,24 +29,13 @@ private struct CaptionTranscriptFeed: View {
 
     var body: some View {
         if !session.hasTranscriptContent && !session.isRunning {
-            ContentUnavailableView(
-                AppText.noCaptionsYet,
-                systemImage: "captions.bubble",
-                description: Text(
-                    session.isUsingProviderTranscriptionMode
-                        ? sourceOnlyNoCaptionsDescription
-                        : AppText.noCaptionsDescription
-                )
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(AirTranslateDesign.workspacePadding)
-            .airTranslateSurface()
+            StageEmptyStateView(session: session, description: emptyStateDescription)
         } else {
             transcriptScrollView
         }
     }
 
-    private var sourceOnlyNoCaptionsDescription: String {
+    private var emptyStateDescription: String {
         if session.isUsingGeminiTranscriptionMode {
             return AppText.localized(
                 english: "Start capture to see automatically detected source captions.",
@@ -89,59 +44,74 @@ private struct CaptionTranscriptFeed: View {
                 chineseSimplified: "开始采集后，将显示自动检测的原文字幕。"
             )
         }
-        return AppText.gptTranscriptionNoCaptionsDescription(for: session.audioInputSource)
+        if session.isUsingProviderTranscriptionMode {
+            return AppText.gptTranscriptionNoCaptionsDescription(for: session.audioInputSource)
+        }
+        return AppText.noCaptionsDescription
     }
 
     private var transcriptScrollView: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 10) {
-                    if session.shouldShowTranscript && session.lines.isEmpty {
-                        Text(AppText.waitingForTranscript)
-                            .font(.callout)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, minHeight: 96)
-                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                            .overlay {
-                                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .strokeBorder(Color.primary.opacity(0.08))
+        GeometryReader { viewport in
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        Spacer(minLength: 0)
+
+                        LazyVStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
+                            if session.shouldShowTranscript && session.lines.isEmpty {
+                                Text(AppText.waitingForTranscript)
+                                    .font(AirTranslateDesign.Typography.label)
+                                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                                    .frame(maxWidth: .infinity, minHeight: 96)
                             }
-                    }
 
-                    ForEach(session.lines) { line in
-                        CaptionLineView(
-                            line: line,
-                            showsTranslationPane: session.shouldShowTranslationPane
-                        )
-                            .equatable()
-                            .id(line.id)
-                            .transition(
-                                reduceMotion
-                                    ? .opacity
-                                    : .move(edge: .bottom).combined(with: .opacity)
-                            )
+                            ForEach(session.lines) { line in
+                                CaptionLineView(
+                                    line: line,
+                                    showsTranslationPane: session.shouldShowTranslationPane,
+                                    isLive: session.isRunning
+                                        && line.id == session.lines.last?.id
+                                        && !line.isFinal
+                                )
+                                .equatable()
+                                .id(line.id)
+                                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
+                            }
+                        }
+
+                        GeometryReader { bottomProxy in
+                            AirTranslateDesign.Palette.transparent
+                                .preference(
+                                    key: CaptionFeedBottomOffsetKey.self,
+                                    value: bottomProxy.frame(in: .named("captionFeed")).maxY
+                                )
+                        }
+                        .frame(height: 0)
                     }
+                    .padding(.vertical, AirTranslateDesign.Spacing.lg)
+                    .frame(minHeight: viewport.size.height, alignment: .bottom)
                 }
-                .padding(.vertical, 4)
-                .animation(
-                    reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.86),
-                    value: session.lines.count
-                )
-            }
-            .onChange(of: latestLineKey) { oldValue, newValue in
-                guard let newValue else { return }
+                .coordinateSpace(name: "captionFeed")
+                .defaultScrollAnchor(.bottom)
+                .onPreferenceChange(CaptionFeedBottomOffsetKey.self) { bottomOffset in
+                    isFollowingLatest = bottomOffset <= viewport.size.height + 48
+                }
+                .onChange(of: latestLineKey) { oldValue, newValue in
+                    guard let newValue, isFollowingLatest else { return }
 
-                if newValue.id != oldValue?.id {
-                    longSessionAutoScrollTask?.cancel()
-                    longSessionAutoScrollTask = nil
-                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.22)) {
-                        proxy.scrollTo(newValue.id, anchor: .bottom)
+                    if newValue.id != oldValue?.id {
+                        longSessionAutoScrollTask?.cancel()
+                        longSessionAutoScrollTask = nil
+                        withAnimation(reduceMotion ? nil : AirTranslateDesign.Motion.enter) {
+                            proxy.scrollTo(newValue.id, anchor: .bottom)
+                        }
+                    } else {
+                        scrollToLatestRevision(newValue.id, proxy: proxy)
                     }
-                } else {
-                    scrollToLatestRevision(newValue.id, proxy: proxy)
                 }
             }
         }
+        .mask { TranscriptScrollFadeMask(showsBottomFade: false) }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onDisappear {
             longSessionAutoScrollTask?.cancel()
@@ -165,125 +135,220 @@ private struct CaptionTranscriptFeed: View {
     }
 }
 
+private struct CaptionFeedBottomOffsetKey: PreferenceKey {
+    static let defaultValue = CGFloat.zero
+
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct StageEmptyStateView: View {
+    @Bindable var session: TranslationSessionStore
+    let description: String
+
+    var body: some View {
+        VStack(spacing: AirTranslateDesign.Spacing.lg) {
+            AudioLevelWaveform(
+                level: nil,
+                date: Date(timeIntervalSinceReferenceDate: 0),
+                barCount: 13,
+                width: 132,
+                height: 54,
+                barWidth: 5,
+                barSpacing: 5
+            )
+            .padding(.bottom, AirTranslateDesign.Spacing.xs)
+
+            VStack(spacing: AirTranslateDesign.Spacing.xs) {
+                Text(AppText.readyToStartListening)
+                    .font(.system(size: 28, weight: .semibold))
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+                    .multilineTextAlignment(.center)
+
+                Text("\(session.languageSummary) · \(ProcessingEngine.current(for: session).title)")
+                    .font(AirTranslateDesign.Typography.label)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                    .lineLimit(1)
+            }
+
+            if PermissionActionButton(session: session).needsPermissionAction {
+                HStack(spacing: AirTranslateDesign.Spacing.sm) {
+                    Image(systemName: "lock.shield.fill")
+                        .foregroundStyle(AirTranslateDesign.Palette.warning)
+                    VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
+                        Text(AppText.permissionRequired)
+                            .font(AirTranslateDesign.Typography.label.weight(.semibold))
+                            .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+                        Text(session.statusMessage)
+                            .font(AirTranslateDesign.Typography.meta)
+                            .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                    }
+                    Spacer(minLength: AirTranslateDesign.Spacing.sm)
+                    PermissionActionButton(session: session)
+                }
+                .padding(AirTranslateDesign.Spacing.md)
+                .frame(maxWidth: 560)
+                .airRaisedSurface()
+            }
+
+            Button {
+                session.start()
+            } label: {
+                Label(AppText.startListening, systemImage: "play.fill")
+                    .frame(minHeight: 48)
+            }
+            .buttonStyle(AirPillButtonStyle(kind: .start))
+            .accessibilityHint(description)
+
+            Text(description)
+                .font(AirTranslateDesign.Typography.meta)
+                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .frame(maxWidth: 560)
+        }
+        .padding(AirTranslateDesign.Spacing.xl)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
 private struct CaptionLineView: View, Equatable {
     let line: CaptionLine
     let showsTranslationPane: Bool
+    let isLive: Bool
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.line.id == rhs.line.id
             && lhs.line.revision == rhs.line.revision
             && lhs.showsTranslationPane == rhs.showsTranslationPane
+            && lhs.isLive == rhs.isLive
     }
 
     var body: some View {
-        Group {
-            if showsTranslationPane {
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 16) {
-                        originalPane
-                            .frame(minWidth: AirTranslateDesign.transcriptPaneMinimum)
-                        translationPane
-                            .frame(minWidth: AirTranslateDesign.transcriptPaneMinimum)
-                    }
-                    .frame(minWidth: AirTranslateDesign.transcriptPairBreakpoint)
-
-                    VStack(alignment: .leading, spacing: 12) {
-                        originalPane
-                        translationPane
-                    }
-                }
-            } else {
-                originalPane
+        HStack(alignment: .top, spacing: AirTranslateDesign.Spacing.md) {
+            if let speakerLabel = line.speakerLabel {
+                AirChip(
+                    text: AppText.speakerLabel(speakerLabel),
+                    systemImage: "person.fill",
+                    tint: AirTranslateDesign.Palette.accent
+                )
+                .frame(width: 72, alignment: .leading)
+                .accessibilityLabel(AppText.speakerLabel(speakerLabel))
             }
+
+            VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
+                if showsTranslationPane {
+                    TurnTranscriptText(
+                        title: AppText.original,
+                        text: line.sourceText,
+                        displayText: line.sourceDisplayText,
+                        font: AirTranslateDesign.Typography.captionOriginal,
+                        lineSpacing: 4,
+                        color: AirTranslateDesign.Palette.textSecondary
+                    )
+
+                    TurnTranscriptText(
+                        title: AppText.translation,
+                        text: line.translatedText,
+                        displayText: line.translatedDisplayText,
+                        font: AirTranslateDesign.Typography.captionTranslation,
+                        lineSpacing: 6,
+                        color: AirTranslateDesign.Palette.textPrimary
+                    )
+                } else {
+                    TurnTranscriptText(
+                        title: AppText.original,
+                        text: line.sourceText,
+                        displayText: line.sourceDisplayText,
+                        font: AirTranslateDesign.Typography.captionTranslation,
+                        lineSpacing: 6,
+                        color: AirTranslateDesign.Palette.textPrimary
+                    )
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
-    }
-
-    private var originalPane: some View {
-        TranscriptPane(
-            title: AppText.original,
-            description: AppText.originalDescription,
-            text: line.sourceText,
-            displayText: line.sourceDisplayText,
-            isPrimary: true
-        )
-    }
-
-    private var translationPane: some View {
-        TranscriptPane(
-            title: AppText.translation,
-            description: AppText.translationDescription,
-            text: line.translatedText,
-            displayText: line.translatedDisplayText,
-            isPrimary: false
-        )
+        .airStageBlock(isLive: isLive)
     }
 }
 
-private struct TranscriptPane: View {
+private struct TurnTranscriptText: View {
     let title: String
-    let description: String
     let text: String
     let displayText: String
-    let isPrimary: Bool
+    let font: Font
+    let lineSpacing: CGFloat
+    let color: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isTextOverflowing = false
     @State private var isReadingBack = false
     @State private var isCopyFeedbackVisible = false
     @State private var copyFeedbackToken = 0
+    @State private var isHovering = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .center, spacing: 8) {
-                Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
+            HStack(spacing: AirTranslateDesign.Spacing.xs) {
+                Text(title.uppercased())
+                    .font(.system(size: 12, weight: .medium))
+                    .tracking(0.6)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                     .accessibilityAddTraits(.isHeader)
-
                 Spacer(minLength: 8)
-
                 Button {
                     if copyText() {
                         showCopyFeedback()
                     }
                 } label: {
                     Image(systemName: isCopyFeedbackVisible ? "checkmark" : "doc.on.doc")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(isCopyFeedbackVisible ? Color.accentColor : Color.secondary)
+                        .font(AirTranslateDesign.Typography.meta.weight(.medium))
+                        .foregroundStyle(
+                            isCopyFeedbackVisible
+                                ? AirTranslateDesign.Palette.accent
+                                : AirTranslateDesign.Palette.textTertiary
+                        )
                         .frame(width: 24, height: 24)
                 }
-                .buttonStyle(TranscriptPaneCopyButtonStyle())
+                .buttonStyle(AirTranslatePressButtonStyle())
                 .controlSize(.small)
+                .opacity(isHovering || isCopyFeedbackVisible ? 1 : 0)
                 .help(isCopyFeedbackVisible ? AppText.copied : AppText.copyTranscriptPane(title))
                 .accessibilityLabel(AppText.copyTranscriptPane(title))
                 .accessibilityValue(isCopyFeedbackVisible ? AppText.copied : AppText.copy)
-                .disabled(!canCopy)
+                .accessibilityRespondsToUserInteraction(true)
             }
 
-            Text(description)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
-            ScrollableTranscriptText(
-                text: displayText,
-                weight: isPrimary ? .regular : .medium,
-                accessibilityLabel: title,
-                isOverflowing: $isTextOverflowing,
-                isReadingBack: $isReadingBack
-            )
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .mask {
-                if isTextOverflowing && isReadingBack {
-                    TranscriptScrollFadeMask()
-                } else {
-                    Rectangle()
+            if text.count > 4_000 {
+                ScrollableTranscriptText(
+                    text: displayText,
+                    weight: .medium,
+                    pointSize: 22,
+                    accessibilityLabel: title,
+                    isOverflowing: $isTextOverflowing,
+                    isReadingBack: $isReadingBack
+                )
+                .frame(maxWidth: .infinity, minHeight: 90, maxHeight: 180)
+                .mask {
+                    if isTextOverflowing && isReadingBack {
+                        TranscriptScrollFadeMask()
+                    } else {
+                        Rectangle()
+                    }
                 }
+            } else {
+                StreamingTranscriptText(
+                    text: displayText,
+                    font: font,
+                    foregroundColor: color
+                )
+                .lineSpacing(lineSpacing)
             }
         }
-        .padding(14)
-        .frame(height: 360, alignment: .topLeading)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .airTranslateSurface(isEmphasized: !isPrimary)
+        .onHover { isHovering = $0 }
+        .animation(reduceMotion ? nil : AirTranslateDesign.Motion.quick, value: isHovering)
         .task(id: copyFeedbackToken) {
             guard isCopyFeedbackVisible else { return }
 
@@ -313,30 +378,21 @@ private struct TranscriptPane: View {
     private func showCopyFeedback() {
         copyFeedbackToken += 1
 
-        withAnimation(reduceMotion ? nil : .snappy(duration: 0.16)) {
+        withAnimation(reduceMotion ? nil : AirTranslateDesign.Motion.quick) {
             isCopyFeedbackVisible = true
         }
     }
 }
 
-private struct TranscriptPaneCopyButtonStyle: ButtonStyle {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(reduceMotion ? 1 : (configuration.isPressed ? 0.88 : 1))
-            .opacity(configuration.isPressed ? 0.72 : 1)
-            .animation(reduceMotion ? nil : .easeOut(duration: 0.08), value: configuration.isPressed)
-    }
-}
-
 private struct TranscriptScrollFadeMask: View {
+    var showsBottomFade = true
+
     var body: some View {
         VStack(spacing: 0) {
             LinearGradient(
                 stops: [
-                    .init(color: .clear, location: 0),
-                    .init(color: .black, location: 1)
+                    .init(color: AirTranslateDesign.Palette.transparent, location: 0),
+                    .init(color: AirTranslateDesign.Palette.maskOpaque, location: 1)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -344,17 +400,19 @@ private struct TranscriptScrollFadeMask: View {
             .frame(height: 18)
 
             Rectangle()
-                .fill(.black)
+                .fill(AirTranslateDesign.Palette.maskOpaque)
 
-            LinearGradient(
-                stops: [
-                    .init(color: .black, location: 0),
-                    .init(color: .clear, location: 1)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .frame(height: 18)
+            if showsBottomFade {
+                LinearGradient(
+                    stops: [
+                        .init(color: AirTranslateDesign.Palette.maskOpaque, location: 0),
+                        .init(color: AirTranslateDesign.Palette.transparent, location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: 18)
+            }
         }
     }
 }
@@ -362,6 +420,7 @@ private struct TranscriptScrollFadeMask: View {
 private struct ScrollableTranscriptText: NSViewRepresentable {
     let text: String
     let weight: NSFont.Weight
+    let pointSize: CGFloat
     let accessibilityLabel: String
     @Binding var isOverflowing: Bool
     @Binding var isReadingBack: Bool
@@ -387,7 +446,7 @@ private struct ScrollableTranscriptText: NSViewRepresentable {
         textView.importsGraphics = false
         textView.drawsBackground = false
         textView.textColor = .labelColor
-        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: weight)
+        textView.font = NSFont.systemFont(ofSize: pointSize, weight: weight)
         textView.textContainerInset = NSSize(width: 0, height: 0)
         textView.textContainer?.lineFragmentPadding = 0
         textView.textContainer?.widthTracksTextView = true
@@ -419,7 +478,7 @@ private struct ScrollableTranscriptText: NSViewRepresentable {
             textView.string = text
         }
 
-        textView.font = NSFont.systemFont(ofSize: NSFont.systemFontSize, weight: weight)
+        textView.font = NSFont.systemFont(ofSize: pointSize, weight: weight)
         textView.textColor = .labelColor
         scrollView.setAccessibilityLabel(accessibilityLabel)
         textView.setAccessibilityLabel(accessibilityLabel)
@@ -551,12 +610,12 @@ private struct SessionOverviewCard: View {
         HStack(alignment: .center, spacing: 10) {
             Image(systemName: "captions.bubble.fill")
                 .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(AirTranslateDesign.Palette.accent)
                 .frame(width: 24, height: 24)
                 .overlay(alignment: .topTrailing) {
                     if isFloatingCaptionVisible {
                         Circle()
-                            .fill(Color.green)
+                            .fill(AirTranslateDesign.Palette.live)
                             .frame(width: 7, height: 7)
                             .padding(4)
                             .accessibilityHidden(true)
@@ -573,12 +632,12 @@ private struct SessionOverviewCard: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.headline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
                     .lineLimit(1)
 
                 Text(subtitle)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                     .lineLimit(1)
             }
             .layoutPriority(1)
@@ -645,12 +704,12 @@ private struct HeaderStatusMessage: View {
 
     private var foregroundStyle: Color {
         if isStarting {
-            return .accentColor
+            return AirTranslateDesign.Palette.accent
         }
         if isBlocked {
-            return .orange
+            return AirTranslateDesign.Palette.warning
         }
-        return .secondary
+        return AirTranslateDesign.Palette.textSecondary
     }
 
     var body: some View {
@@ -692,7 +751,7 @@ private struct HeaderAudioLevelStrip: View {
     }
 
     private var foregroundStyle: Color {
-        isPaused ? .orange : .green
+        isPaused ? AirTranslateDesign.Palette.paused : AirTranslateDesign.Palette.live
     }
 
     var body: some View {
@@ -741,7 +800,7 @@ private struct HeaderAudioLevelStrip: View {
 
 }
 
-private struct AudioLevelWaveform: View {
+struct AudioLevelWaveform: View {
     let level: Float?
     let date: Date
     var barCount = 5
@@ -749,6 +808,7 @@ private struct AudioLevelWaveform: View {
     var height = 24.0
     var barWidth = 3.8
     var barSpacing = 3.0
+    var tint = AirTranslateDesign.Palette.live
 
     var body: some View {
         HStack(alignment: .center, spacing: barSpacing) {
@@ -782,6 +842,6 @@ private struct AudioLevelWaveform: View {
 
     private func barFill(for index: Int) -> Color {
         let quietOpacity = 0.44 + Double(index) * 0.035
-        return Color.green.opacity(min(0.92, 0.46 + normalizedLevel * quietOpacity))
+        return tint.opacity(min(0.92, 0.46 + normalizedLevel * quietOpacity))
     }
 }

@@ -9,6 +9,7 @@ private enum DraftEditorField: Hashable {
 struct TranscriptLibraryView: View {
     @Bindable var session: TranslationSessionStore
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var focusedDraftEditor: DraftEditorField?
     @State private var draftEditorTextViews: [DraftEditorField: NSTextView] = [:]
     @State private var isDeleteSelectedConfirmationPresented = false
@@ -19,10 +20,12 @@ struct TranscriptLibraryView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-                .padding(.horizontal, 16)
-                .padding(.vertical, 14)
+                .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+                .padding(.vertical, AirTranslateDesign.Spacing.md)
 
-            Divider()
+            Rectangle()
+                .fill(AirTranslateDesign.Palette.hairline)
+                .frame(height: 1)
 
             content
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -33,6 +36,8 @@ struct TranscriptLibraryView: View {
             minHeight: AirTranslateDesign.libraryMinimumHeight,
             idealHeight: AirTranslateDesign.libraryIdealHeight
         )
+        .tint(AirTranslateDesign.Palette.accent)
+        .background(AirTranslateDesign.Palette.canvas)
         .confirmationDialog(
             AppText.deleteSavedTranscriptConfirmation,
             isPresented: $isDeleteSelectedConfirmationPresented
@@ -60,20 +65,25 @@ struct TranscriptLibraryView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 9) {
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.sm) {
+            HStack(spacing: AirTranslateDesign.Spacing.sm) {
                 Image(systemName: "tray.full")
                     .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
-                    .foregroundStyle(Color.accentColor)
-                    .frame(width: 22, height: 22)
+                    .foregroundStyle(AirTranslateDesign.Palette.accent)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        AirTranslateDesign.Palette.accentSoft,
+                        in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
+                    )
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
                     Text(AppText.savedTranscripts)
-                        .font(.title3.weight(.semibold))
+                        .font(AirTranslateDesign.Typography.stageTitle)
+                        .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
                     Text(AppText.autoSaveDescription)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .font(AirTranslateDesign.Typography.meta)
+                        .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                         .lineLimit(2)
                 }
 
@@ -82,6 +92,7 @@ struct TranscriptLibraryView: View {
                 Button(AppText.close) {
                     dismiss()
                 }
+                .buttonStyle(.bordered)
                 .keyboardShortcut(.cancelAction)
             }
 
@@ -104,13 +115,15 @@ struct TranscriptLibraryView: View {
     private var contentModeControl: some View {
         HStack(spacing: 8) {
             Text(AppText.savedTranscriptContent)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(AirTranslateDesign.Typography.sectionLabel)
+                .tracking(0.6)
+                .textCase(.uppercase)
+                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
 
             if session.isTranscribeOnlyMode {
                 Text(session.effectiveSavedTranscriptContentMode.title)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(AirTranslateDesign.Typography.label)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
             } else {
                 Picker(AppText.savedTranscriptContent, selection: $session.savedTranscriptContentMode) {
                     ForEach(session.availableSavedTranscriptContentModes) { mode in
@@ -119,6 +132,7 @@ struct TranscriptLibraryView: View {
                 }
                 .labelsHidden()
                 .pickerStyle(.segmented)
+                .tint(AirTranslateDesign.Palette.accent)
                 .frame(minWidth: 210, idealWidth: 230, maxWidth: 280)
             }
         }
@@ -131,12 +145,16 @@ struct TranscriptLibraryView: View {
             } label: {
                 Label(AppText.openSaveFolder, systemImage: "folder")
             }
+            .buttonStyle(.bordered)
+            .tint(AirTranslateDesign.Palette.accent)
 
             Button(role: .destructive) {
                 isDeleteAllConfirmationPresented = true
             } label: {
                 Label(AppText.deleteAllSavedTranscripts, systemImage: "trash")
             }
+            .buttonStyle(.bordered)
+            .tint(AirTranslateDesign.Palette.danger)
             .disabled(session.savedTranscripts.isEmpty)
             .help(AppText.deleteAllSavedTranscriptsHelp)
         }
@@ -145,18 +163,38 @@ struct TranscriptLibraryView: View {
     @ViewBuilder
     private var content: some View {
         if session.savedTranscripts.isEmpty {
-            ContentUnavailableView(
-                AppText.savedEmpty,
-                systemImage: "tray",
-                description: Text(AppText.autoSaveDescription)
-            )
+            VStack(spacing: AirTranslateDesign.Spacing.md) {
+                AudioLevelWaveform(
+                    level: nil,
+                    date: .distantPast,
+                    barCount: 11,
+                    width: 92,
+                    height: 30,
+                    barWidth: 4,
+                    barSpacing: 4,
+                    tint: AirTranslateDesign.Palette.accent
+                )
+
+                Text(AppText.savedEmpty)
+                    .font(AirTranslateDesign.Typography.stageTitle)
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+
+                Text(AppText.autoSaveDescription)
+                    .font(AirTranslateDesign.Typography.meta)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 460)
+            }
+            .padding(AirTranslateDesign.Spacing.xl)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             HStack(spacing: 0) {
                 transcriptList
-                    .frame(width: 230)
+                    .frame(width: 260)
 
-                Divider()
+                Rectangle()
+                    .fill(AirTranslateDesign.Palette.hairline)
+                    .frame(width: 1)
 
                 editor
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -166,7 +204,7 @@ struct TranscriptLibraryView: View {
 
     private var transcriptList: some View {
         ScrollView {
-            LazyVStack(alignment: .leading, spacing: 4) {
+            LazyVStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
                 ForEach(session.savedTranscripts) { transcript in
                     Button {
                         session.selectSavedTranscript(transcript.id)
@@ -182,9 +220,9 @@ struct TranscriptLibraryView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(10)
+            .padding(AirTranslateDesign.Spacing.xs)
         }
-        .background(.bar)
+        .background(AirTranslateDesign.Palette.canvas)
     }
 
     @ViewBuilder
@@ -193,7 +231,8 @@ struct TranscriptLibraryView: View {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Text(AppText.editSaved)
-                        .font(.headline)
+                        .font(AirTranslateDesign.Typography.stageTitle)
+                        .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
                     Spacer(minLength: 0)
 
@@ -206,7 +245,7 @@ struct TranscriptLibraryView: View {
                                 .frame(width: 28, height: 28)
                         } else {
                             Label(AppText.foundationModelCleanupShort, systemImage: "sparkles")
-                                .font(.caption.weight(.semibold))
+                                .font(AirTranslateDesign.Typography.meta.weight(.semibold))
                         }
                     }
                     .disabled(!canCopyDraft || session.isFoundationTranscriptCleanupRunning)
@@ -220,7 +259,7 @@ struct TranscriptLibraryView: View {
                     } label: {
                         Image(systemName: isCopyFeedbackVisible ? "checkmark" : "clipboard")
                             .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(isCopyFeedbackVisible ? Color.accentColor : Color.secondary)
+                            .foregroundStyle(isCopyFeedbackVisible ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
                             .frame(width: 26, height: 26)
                             .airTranslateInteractiveSurface(isSelected: isCopyFeedbackVisible)
                     }
@@ -238,6 +277,8 @@ struct TranscriptLibraryView: View {
                     } label: {
                         Label(AppText.saveEdits, systemImage: "checkmark")
                     }
+                    .buttonStyle(.borderedProminent)
+                    .tint(AirTranslateDesign.Palette.accent)
                     .keyboardShortcut("s", modifiers: [.command])
 
                     Spacer(minLength: 0)
@@ -247,9 +288,13 @@ struct TranscriptLibraryView: View {
                     } label: {
                         Label(AppText.deleteSavedTranscript, systemImage: "trash")
                     }
+                    .buttonStyle(.bordered)
+                    .tint(AirTranslateDesign.Palette.danger)
                 }
             }
-            .padding(16)
+            .padding(AirTranslateDesign.Spacing.md)
+            .airRaisedSurface()
+            .padding(AirTranslateDesign.Spacing.md)
         } else {
             ContentUnavailableView(AppText.noSavedTranscriptSelected, systemImage: "doc.text")
         }
@@ -304,8 +349,10 @@ struct TranscriptLibraryView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 8) {
                 Text(title)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .font(AirTranslateDesign.Typography.sectionLabel)
+                    .tracking(0.6)
+                    .textCase(.uppercase)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
 
                 Spacer(minLength: 0)
 
@@ -320,10 +367,10 @@ struct TranscriptLibraryView: View {
             ) { field, textView in
                 draftEditorTextViews[field] = textView
             }
-            .background(AirTranslateDesign.quietFill, in: RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous))
+            .background(AirTranslateDesign.Palette.canvas, in: RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous)
-                    .strokeBorder(AirTranslateDesign.separator.opacity(0.55))
+                    .strokeBorder(AirTranslateDesign.Palette.hairline)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -335,7 +382,7 @@ struct TranscriptLibraryView: View {
         } label: {
             Image(systemName: "sparkles")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.secondary)
+                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                 .frame(width: 26, height: 26)
                 .airTranslateInteractiveSurface()
         }
@@ -389,7 +436,7 @@ struct TranscriptLibraryView: View {
         copyFeedbackToken += 1
         let token = copyFeedbackToken
 
-        withAnimation(.snappy(duration: 0.16)) {
+        withAnimation(reduceMotion ? nil : AirTranslateDesign.Motion.quick) {
             isCopyFeedbackVisible = true
         }
 
@@ -398,7 +445,7 @@ struct TranscriptLibraryView: View {
             await MainActor.run {
                 guard token == copyFeedbackToken else { return }
 
-                withAnimation(.easeOut(duration: 0.18)) {
+                withAnimation(reduceMotion ? nil : AirTranslateDesign.Motion.quick) {
                     isCopyFeedbackVisible = false
                 }
             }
@@ -512,13 +559,14 @@ private struct TranscriptLibraryRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: transcript.isOriginalAndTranslation ? "doc.on.doc.fill" : (isSelected ? "doc.text.fill" : "doc.text"))
-                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                .foregroundStyle(isSelected ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
                 .frame(width: 16)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(transcript.title)
+                    .font(AirTranslateDesign.Typography.libraryRowTitle)
                     .lineLimit(2)
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
                 HStack(spacing: 5) {
                     if transcript.isOriginalAndTranslation {
@@ -527,14 +575,17 @@ private struct TranscriptLibraryRow: View {
 
                     Text(transcript.updatedAt, style: .date)
                 }
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(AirTranslateDesign.Typography.meta)
+                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
             }
 
             Spacer(minLength: 0)
         }
-        .padding(8)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(isSelected ? Color.accentColor.opacity(0.12) : Color.clear, in: RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous))
+        .padding(.horizontal, AirTranslateDesign.Spacing.sm)
+        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+        .background(
+            isSelected ? AirTranslateDesign.Palette.accentSoft : AirTranslateDesign.Palette.transparent,
+            in: RoundedRectangle(cornerRadius: AirTranslateDesign.controlRadius, style: .continuous)
+        )
     }
 }

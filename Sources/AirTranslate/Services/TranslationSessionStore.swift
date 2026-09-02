@@ -52,7 +52,7 @@ enum CaptureStartRecoveryAction: Equatable {
 
     static func forReadiness(_ readiness: StartReadinessAssessment) -> Self? {
         switch readiness.issue {
-        case .openAIAPIKeyMissing, .geminiAPIKeyMissing:
+        case .openAIAPIKeyMissing, .geminiAPIKeyMissing, .metaAPIKeyMissing:
             .apiKeys
         case .localAssetsChecking, .localAssetsUnavailable:
             .retry
@@ -70,6 +70,8 @@ private enum SettingsKey {
     static let openAITranslationModelID = "openAITranslationModelID"
     static let geminiTranslationModelID = "geminiTranslationModelID"
     static let preferredGeminiModelID = "preferredGeminiModelID"
+    static let metaTranscriptionModelID = "metaTranscriptionModelID"
+    static let metaSpeakerLabelsEnabled = "metaSpeakerLabelsEnabled"
     static let isDubbingEnabled = "isDubbingEnabled"
     static let appleVoiceOutputEnabled = "appleVoiceOutputEnabled"
     static let providerVoiceOutputEnabled = "providerVoiceOutputEnabled"
@@ -93,6 +95,7 @@ private struct TranslationRequest {
     let translationSourceText: String
     let source: LanguageOption
     let target: LanguageOption
+    let preservesOrdering: Bool
 }
 
 private struct PendingCaptionPresentation {
@@ -118,7 +121,35 @@ struct StartConfiguration: Equatable {
     let openAITranscriptionModel: OpenAIRealtimeTranscriptionModel
     let openAITranslationModel: OpenAIRealtimeTranslationModel
     let geminiTranslationModel: GeminiTranslationModel
+    let metaTranscriptionModel: MetaTranscriptionModel
+    let usesMetaSpeakerLabels: Bool
     let usesAppleSourceAutoDetection: Bool
+
+    init(
+        audioInputSource: AudioInputSource,
+        microphoneDeviceUniqueID: String?,
+        sourceLanguage: LanguageOption,
+        targetLanguage: LanguageOption,
+        selectedModel: IntelligenceModel,
+        openAITranscriptionModel: OpenAIRealtimeTranscriptionModel,
+        openAITranslationModel: OpenAIRealtimeTranslationModel,
+        geminiTranslationModel: GeminiTranslationModel,
+        metaTranscriptionModel: MetaTranscriptionModel = .off,
+        usesMetaSpeakerLabels: Bool = true,
+        usesAppleSourceAutoDetection: Bool
+    ) {
+        self.audioInputSource = audioInputSource
+        self.microphoneDeviceUniqueID = microphoneDeviceUniqueID
+        self.sourceLanguage = sourceLanguage
+        self.targetLanguage = targetLanguage
+        self.selectedModel = selectedModel
+        self.openAITranscriptionModel = openAITranscriptionModel
+        self.openAITranslationModel = openAITranslationModel
+        self.geminiTranslationModel = geminiTranslationModel
+        self.metaTranscriptionModel = metaTranscriptionModel
+        self.usesMetaSpeakerLabels = usesMetaSpeakerLabels
+        self.usesAppleSourceAutoDetection = usesAppleSourceAutoDetection
+    }
 
     var isUsingGPTTranscriptionMode: Bool {
         openAITranscriptionModel == .gptLiveTranscribe
@@ -131,7 +162,9 @@ struct StartConfiguration: Equatable {
     }
 
     var sampleRate: Int {
-        openAITranscriptionModel.isEnabled || openAITranslationModel.usesRealtimeAudioTranslation
+        openAITranscriptionModel.isEnabled
+            || openAITranslationModel.usesRealtimeAudioTranslation
+            || metaTranscriptionModel.isEnabled
             ? 24_000
             : 16_000
     }
@@ -255,6 +288,7 @@ private final class AudioSamplePipelineRegistry: @unchecked Sendable {
         let transcriber: LiveSpeechTranscriber
         let openAITranscriber: OpenAIRealtimeTranscriber
         let geminiLiveTranslator: GeminiLiveTranslationService
+        let metaVoiceTranscriber: MetaVoiceTranscribeService
     }
 
     private let lock = NSLock()
@@ -264,14 +298,16 @@ private final class AudioSamplePipelineRegistry: @unchecked Sendable {
         generation: UInt64,
         transcriber: LiveSpeechTranscriber,
         openAITranscriber: OpenAIRealtimeTranscriber,
-        geminiLiveTranslator: GeminiLiveTranslationService
+        geminiLiveTranslator: GeminiLiveTranslationService,
+        metaVoiceTranscriber: MetaVoiceTranscribeService
     ) {
         lock.lock()
         pipeline = Pipeline(
             generation: generation,
             transcriber: transcriber,
             openAITranscriber: openAITranscriber,
-            geminiLiveTranslator: geminiLiveTranslator
+            geminiLiveTranslator: geminiLiveTranslator,
+            metaVoiceTranscriber: metaVoiceTranscriber
         )
         lock.unlock()
     }
@@ -292,6 +328,7 @@ private final class AudioSamplePipelineRegistry: @unchecked Sendable {
         pipeline.transcriber.append(sampleBuffer)
         pipeline.openAITranscriber.append(sampleBuffer)
         pipeline.geminiLiveTranslator.append(sampleBuffer)
+        pipeline.metaVoiceTranscriber.append(sampleBuffer)
     }
 }
 
@@ -369,6 +406,7 @@ final class TranslationSessionStore {
     private static let maximumFloatingCaptionDwell = 2.2
     private static let transcribeOnlyNoticeDisplayDuration: TimeInterval = 10
     static let geminiSessionRefreshInterval: TimeInterval = 570
+    static let metaSessionRefreshInterval: TimeInterval = 3_300
     private static let appleAutoDetectionMinimumConfidence = 0.35
     private static let appleAutoDetectionLanguageSwitchMinimumConfidence = 0.72
     private static let isAppleSourceAutoDetectionTemporarilyDisabled = true
@@ -434,12 +472,14 @@ final class TranslationSessionStore {
     }
     var hasOpenAIAPIKey = OpenAIAPIKeyStore.hasAPIKey()
     var hasGeminiAPIKey = GeminiAPIKeyStore.hasAPIKey()
+    var hasMetaAPIKey = MetaAPIKeyStore.hasAPIKey()
     var requestedSettingsCategoryID: String?
     var openAITranscriptionModel = OpenAIRealtimeTranscriptionModel.off {
         didSet {
             if openAITranscriptionModel.isEnabled {
                 isTranscriptLintEnabled = false
                 geminiTranslationModel = .off
+                metaTranscriptionModel = .off
             }
             persistSelectedSettings()
             resetTranslationCache()
@@ -455,6 +495,7 @@ final class TranslationSessionStore {
                 }
                 isTranscriptLintEnabled = false
                 geminiTranslationModel = .off
+                metaTranscriptionModel = .off
             }
             persistSelectedSettings()
             resetTranslationCache()
@@ -469,6 +510,7 @@ final class TranslationSessionStore {
                 selectedModel = .appleSystem
                 openAITranscriptionModel = .off
                 openAITranslationModel = .off
+                metaTranscriptionModel = .off
                 preferredGeminiModel = geminiTranslationModel
                 if geminiTranslationModel.isTranscription {
                     prepareTranscribeOnlyPresentation()
@@ -483,6 +525,25 @@ final class TranslationSessionStore {
         }
     }
     private(set) var preferredGeminiModel = GeminiTranslationModel.gemini35LiveTranslate
+    var metaTranscriptionModel = MetaTranscriptionModel.off {
+        didSet {
+            if metaTranscriptionModel.isEnabled {
+                isTranscriptLintEnabled = false
+                selectedModel = .appleSystem
+                openAITranscriptionModel = .off
+                openAITranslationModel = .off
+                geminiTranslationModel = .off
+                restoreFloatingCaptionDisplayModeAfterTranscribeOnly()
+            }
+            persistSelectedSettings()
+            resetTranslationCache()
+            resetDubbingProgress()
+            refreshModelAvailability()
+        }
+    }
+    var isMetaSpeakerLabelsEnabled = true {
+        didSet { persistSelectedSettings() }
+    }
     var isTranscriptLintEnabled = false {
         didSet { persistSelectedSettings() }
     }
@@ -554,6 +615,8 @@ final class TranslationSessionStore {
     @ObservationIgnored private var openAITranscriber = OpenAIRealtimeTranscriber()
     @ObservationIgnored private var geminiLiveTranslator = GeminiLiveTranslationService()
     @ObservationIgnored private var geminiSessionRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private var metaVoiceTranscriber = MetaVoiceTranscribeService()
+    @ObservationIgnored private var metaSessionRefreshTask: Task<Void, Never>?
     @ObservationIgnored nonisolated private let audioSamplePipelineRegistry = AudioSamplePipelineRegistry()
     @ObservationIgnored nonisolated private let openAITerminalTranscriptMailbox =
         OpenAITerminalTranscriptMailbox()
@@ -589,6 +652,7 @@ final class TranslationSessionStore {
     private var translationSessionWarmupTask: Task<Void, Never>?
     private var translationSessionWarmupGeneration: UInt64?
     private var latestTranslationRequest: TranslationRequest?
+    private var orderedTranslationRequests: [TranslationRequest] = []
     private var translationBurstStartedAt = Date.distantPast
     private var committedSourceText = ""
     private var currentPartialText = ""
@@ -616,6 +680,10 @@ final class TranslationSessionStore {
     private var realtimeTranslationOnlyText = ""
     private var geminiLiveInputTranscriptText = ""
     private var geminiLiveOutputTranscriptText = ""
+    private var metaActiveTurnID: Int32?
+    private var metaTurnLineIDs: [Int32: UUID] = [:]
+    private var metaTurnSpeakerLabels: [Int32: String] = [:]
+    private var metaSavedTranscriptText = ""
     private var activeAutosaveSourceText = ""
     private var activeAutosaveTranslatedText = ""
     private var activeAutosaveBaseFileName: String?
@@ -679,6 +747,10 @@ final class TranslationSessionStore {
         geminiTranslationModel.isTranscription
     }
 
+    var isUsingMetaScribe: Bool {
+        metaTranscriptionModel.isEnabled
+    }
+
     var isUsingProviderTranscriptionMode: Bool {
         isUsingGPTTranscriptionMode || isUsingGeminiTranscriptionMode
     }
@@ -735,6 +807,7 @@ final class TranslationSessionStore {
         openAITranscriber.delegate = self
         configureOpenAITerminalTranscriptDelivery(for: openAITranscriber)
         geminiLiveTranslator.delegate = self
+        metaVoiceTranscriber.delegate = self
         loadSavedTranscripts()
         loadProductHuntScreenshotDemoIfRequested()
         refreshModelAvailability()
@@ -826,6 +899,8 @@ final class TranslationSessionStore {
                     statusMessage = AppText.connectingGPTTranscription
                 } else if configuration.geminiTranslationModel.isEnabled {
                     statusMessage = AppText.connectingGeminiLiveTranslation
+                } else if configuration.metaTranscriptionModel.isEnabled {
+                    statusMessage = AppText.connectingMetaScribe
                 } else {
                     statusMessage = AppText.checkingSpeechPermission
                 }
@@ -838,7 +913,8 @@ final class TranslationSessionStore {
                     generation: generation,
                     transcriber: transcriber,
                     openAITranscriber: openAITranscriber,
-                    geminiLiveTranslator: geminiLiveTranslator
+                    geminiLiveTranslator: geminiLiveTranslator,
+                    metaVoiceTranscriber: metaVoiceTranscriber
                 )
 
                 statusMessage = AppText.startingCapture(for: configuration.audioInputSource)
@@ -1012,6 +1088,8 @@ final class TranslationSessionStore {
             openAITranscriptionModel: openAITranscriptionModel,
             openAITranslationModel: openAITranslationModel,
             geminiTranslationModel: geminiTranslationModel,
+            metaTranscriptionModel: metaTranscriptionModel,
+            usesMetaSpeakerLabels: isMetaSpeakerLabelsEnabled,
             usesAppleSourceAutoDetection: isUsingAppleSourceAutoDetection
         )
     }
@@ -1095,6 +1173,8 @@ final class TranslationSessionStore {
             hasOpenAIAPIKey: hasOpenAIAPIKey,
             requiresGeminiAPIKey: isUsingGemini,
             hasGeminiAPIKey: hasGeminiAPIKey,
+            requiresMetaAPIKey: isUsingMetaScribe,
+            hasMetaAPIKey: hasMetaAPIKey,
             requiredLocalModelAvailability: requiredLocalModelForStart.map { modelAvailability(for: $0) }
         )
     }
@@ -1105,6 +1185,9 @@ final class TranslationSessionStore {
         }
         if openAITranscriptionModel.isEnabled {
             return isTranscribeOnlyMode ? nil : .appleOnDevice
+        }
+        if isUsingMetaScribe {
+            return .appleOnDevice
         }
         if isUsingGemini {
             return nil
@@ -1120,6 +1203,8 @@ final class TranslationSessionStore {
             return AppText.openAIAPIKeyRequiredForGPTMode
         case .geminiAPIKeyMissing:
             return AppText.geminiAPIKeyMissing
+        case .metaAPIKeyMissing:
+            return AppText.metaAPIKeyMissing
         case .localAssetsChecking:
             return AppText.startBlockedLocalAssetsChecking
         case .localAssetsDownloadRequired:
@@ -1280,6 +1365,20 @@ final class TranslationSessionStore {
         refreshModelAvailability()
     }
 
+    func saveMetaAPIKey(_ key: String) throws {
+        try MetaAPIKeyStore.saveAPIKey(key)
+        hasMetaAPIKey = true
+        statusMessage = AppText.metaAPIKeySaved
+        refreshModelAvailability()
+    }
+
+    func removeMetaAPIKey() throws {
+        try MetaAPIKeyStore.deleteAPIKey()
+        hasMetaAPIKey = false
+        statusMessage = AppText.metaAPIKeyRemoved
+        refreshModelAvailability()
+    }
+
     func openTranscriptsFolder() {
         do {
             try FileManager.default.createDirectory(
@@ -1376,6 +1475,7 @@ final class TranslationSessionStore {
         openAITranscriptionModel = .off
         openAITranslationModel = .off
         geminiTranslationModel = .off
+        metaTranscriptionModel = .off
         applyAppleVoiceOutputDefault()
         restoreFloatingCaptionDisplayModeAfterTranscribeOnly()
     }
@@ -1389,6 +1489,7 @@ final class TranslationSessionStore {
         clearTranscribeOnlyNotice(resetActivation: true)
         selectedModel = .appleSystem
         geminiTranslationModel = .off
+        metaTranscriptionModel = .off
         openAITranscriptionModel = .off
         isTranscriptLintEnabled = false
         if openAITranslationModel != selectedOpenAIModel {
@@ -1405,6 +1506,7 @@ final class TranslationSessionStore {
         }
         selectedModel = .appleSpeechOnly
         geminiTranslationModel = .off
+        metaTranscriptionModel = .off
         openAITranslationModel = .off
         if openAITranscriptionModel != .gptLiveTranscribe {
             openAITranscriptionModel = .gptLiveTranscribe
@@ -1430,6 +1532,7 @@ final class TranslationSessionStore {
         selectedModel = .appleSystem
         openAITranscriptionModel = .off
         openAITranslationModel = .off
+        metaTranscriptionModel = .off
         if model.isTranscription {
             prepareTranscribeOnlyPresentation()
         }
@@ -1443,6 +1546,20 @@ final class TranslationSessionStore {
         } else {
             applyVoiceOutputDefault(false)
         }
+    }
+
+    func useMetaScribeMode() {
+        guard !isRunning, !isStarting else { return }
+        clearTranscribeOnlyNotice(resetActivation: true)
+        selectedModel = .appleSystem
+        openAITranscriptionModel = .off
+        openAITranslationModel = .off
+        geminiTranslationModel = .off
+        if metaTranscriptionModel != .museVoiceTranscribe {
+            metaTranscriptionModel = .museVoiceTranscribe
+        }
+        applyAppleVoiceOutputDefault()
+        restoreFloatingCaptionDisplayModeAfterTranscribeOnly()
     }
 
     func useLiveOutputMode(_ mode: LiveOutputMode) {
@@ -1482,6 +1599,9 @@ final class TranslationSessionStore {
         }
         if geminiTranslationModel.isEnabled {
             geminiTranslationModel = .off
+        }
+        if metaTranscriptionModel.isEnabled {
+            metaTranscriptionModel = .off
         }
         isDubbingEnabled = false
         selectedModel = .appleSpeechOnly
@@ -1961,6 +2081,53 @@ final class TranslationSessionStore {
                 )
             }
         }
+        metaVoiceTranscriber = MetaVoiceTranscribeService()
+        metaVoiceTranscriber.delegate = self
+        metaVoiceTranscriber.onAudioTransportDegraded = { [weak self, weak metaVoiceTranscriber] degradation in
+            Task { @MainActor in
+                guard let self,
+                      let metaVoiceTranscriber,
+                      metaVoiceTranscriber === self.metaVoiceTranscriber
+                else {
+                    return
+                }
+                self.handleFatalPipelineError(
+                    RealtimeAudioTransportError(degradation: degradation),
+                    generation: generation
+                )
+            }
+        }
+        metaVoiceTranscriber.onSessionClosed = { [weak self, weak metaVoiceTranscriber] code, reason in
+            Task { @MainActor in
+                guard let self,
+                      let metaVoiceTranscriber,
+                      metaVoiceTranscriber === self.metaVoiceTranscriber,
+                      self.pipelineLifecycle.acceptsSample(generation: generation),
+                      self.currentStartConfiguration() == configuration
+                else {
+                    return
+                }
+                if code == 1011 || code == 1013 {
+                    self.scheduleMetaSessionReconnect(
+                        service: metaVoiceTranscriber,
+                        configuration: configuration,
+                        generation: generation,
+                        delay: code == 1013 ? 5 : 2
+                    )
+                } else if code == 1008 {
+                    self.handleFatalPipelineError(
+                        MetaVoiceTranscribeError.invalidRequest,
+                        generation: generation
+                    )
+                } else if code != 1000 {
+                    self.handleFatalPipelineError(
+                        MetaVoiceTranscribeError.connectionFailed,
+                        generation: generation
+                    )
+                }
+                _ = reason
+            }
+        }
         activeCaptionerGeneration = generation
 
         if configuration.isTranscribeOnlyMode, configuration.openAITranscriptionModel.isEnabled {
@@ -1975,6 +2142,21 @@ final class TranslationSessionStore {
             )
             scheduleGeminiSessionRefresh(
                 service: geminiLiveTranslator,
+                configuration: configuration,
+                generation: generation
+            )
+        } else if configuration.metaTranscriptionModel.isEnabled {
+            try await metaVoiceTranscriber.start(
+                model: configuration.metaTranscriptionModel,
+                sourceLanguage: configuration.sourceLanguage,
+                usesSpeakerLabels: configuration.usesMetaSpeakerLabels,
+                languageBias: configuration.usesAppleSourceAutoDetection
+                    ? nil
+                    : configuration.sourceLanguage.metaLanguageBiasName.map { [$0] },
+                keywords: []
+            )
+            scheduleMetaSessionRefresh(
+                service: metaVoiceTranscriber,
                 configuration: configuration,
                 generation: generation
             )
@@ -1994,6 +2176,7 @@ final class TranslationSessionStore {
     private func usesAppleSpeechTranscriber(for configuration: StartConfiguration) -> Bool {
         !configuration.openAITranscriptionModel.isEnabled
             && !configuration.geminiTranslationModel.isEnabled
+            && !configuration.metaTranscriptionModel.isEnabled
             && !configuration.openAITranslationModel.usesRealtimeAudioTranslation
     }
 
@@ -2058,19 +2241,25 @@ final class TranslationSessionStore {
     private func stopCaptioners(openAITranscriberAlreadyStopped: Bool = false) {
         geminiSessionRefreshTask?.cancel()
         geminiSessionRefreshTask = nil
+        metaSessionRefreshTask?.cancel()
+        metaSessionRefreshTask = nil
         audioSamplePipelineRegistry.clear()
         activeCaptionerGeneration = nil
         openAITranscriber.onAudioTransportDegraded = nil
         geminiLiveTranslator.onAudioTransportDegraded = nil
         geminiLiveTranslator.onSessionReconnectRecommended = nil
+        metaVoiceTranscriber.onAudioTransportDegraded = nil
+        metaVoiceTranscriber.onSessionClosed = nil
         transcriber.delegate = nil
         openAITranscriber.delegate = nil
         geminiLiveTranslator.delegate = nil
+        metaVoiceTranscriber.delegate = nil
         transcriber.stop()
         if !openAITranscriberAlreadyStopped {
             openAITranscriber.stop()
         }
         geminiLiveTranslator.stop()
+        metaVoiceTranscriber.stop()
     }
 
     private func scheduleGeminiSessionRefresh(
@@ -2148,6 +2337,89 @@ final class TranslationSessionStore {
         }
     }
 
+    private func scheduleMetaSessionRefresh(
+        service: MetaVoiceTranscribeService,
+        configuration: StartConfiguration,
+        generation: UInt64
+    ) {
+        metaSessionRefreshTask?.cancel()
+        metaSessionRefreshTask = Task { @MainActor [weak self, weak service] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(Self.metaSessionRefreshInterval))
+                guard !Task.isCancelled,
+                      let self,
+                      let service,
+                      service === self.metaVoiceTranscriber,
+                      self.pipelineLifecycle.acceptsSample(generation: generation),
+                      self.currentStartConfiguration() == configuration
+                else {
+                    return
+                }
+                do {
+                    try await self.restartMetaSession(
+                        service,
+                        configuration: configuration
+                    )
+                    service.setPaused(self.isPaused)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    self.handleFatalPipelineError(error, generation: generation)
+                    return
+                }
+            }
+        }
+    }
+
+    private func scheduleMetaSessionReconnect(
+        service: MetaVoiceTranscribeService,
+        configuration: StartConfiguration,
+        generation: UInt64,
+        delay: TimeInterval
+    ) {
+        metaSessionRefreshTask?.cancel()
+        metaSessionRefreshTask = Task { @MainActor [weak self, weak service] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled,
+                  let self,
+                  let service,
+                  service === self.metaVoiceTranscriber,
+                  self.pipelineLifecycle.acceptsSample(generation: generation),
+                  self.currentStartConfiguration() == configuration
+            else {
+                return
+            }
+            do {
+                try await self.restartMetaSession(service, configuration: configuration)
+                service.setPaused(self.isPaused)
+                self.scheduleMetaSessionRefresh(
+                    service: service,
+                    configuration: configuration,
+                    generation: generation
+                )
+            } catch is CancellationError {
+                return
+            } catch {
+                self.handleFatalPipelineError(error, generation: generation)
+            }
+        }
+    }
+
+    private func restartMetaSession(
+        _ service: MetaVoiceTranscribeService,
+        configuration: StartConfiguration
+    ) async throws {
+        try await service.start(
+            model: configuration.metaTranscriptionModel,
+            sourceLanguage: configuration.sourceLanguage,
+            usesSpeakerLabels: configuration.usesMetaSpeakerLabels,
+            languageBias: configuration.usesAppleSourceAutoDetection
+                ? nil
+                : configuration.sourceLanguage.metaLanguageBiasName.map { [$0] },
+            keywords: []
+        )
+    }
+
     private func flushOpenAITerminalTranscriptMailbox() {
         openAITerminalTranscriptMailbox.drain().forEach { transcript in
             guard transcript.transcriber === openAITranscriber,
@@ -2187,6 +2459,7 @@ final class TranslationSessionStore {
         transcriber.setPaused(isPaused)
         openAITranscriber.setPaused(isPaused)
         geminiLiveTranslator.setPaused(isPaused)
+        metaVoiceTranscriber.setPaused(isPaused)
     }
 
     private func resetLiveSessionState(clearsVisibleLines: Bool) {
@@ -2230,6 +2503,7 @@ final class TranslationSessionStore {
         }
         pendingTranslationSourceText = ""
         latestTranslationRequest = nil
+        orderedTranslationRequests = []
         translationBurstStartedAt = Date.distantPast
         if !clearsVisibleLines {
             clearPendingTranslationPlaceholders(message: AppText.translationCancelled)
@@ -2239,6 +2513,10 @@ final class TranslationSessionStore {
         realtimeTranslationOnlyText = ""
         geminiLiveInputTranscriptText = ""
         geminiLiveOutputTranscriptText = ""
+        metaActiveTurnID = nil
+        metaTurnLineIDs = [:]
+        metaTurnSpeakerLabels = [:]
+        metaSavedTranscriptText = ""
         activeAutosaveSourceText = ""
         activeAutosaveTranslatedText = ""
         activeAutosaveBaseFileName = nil
@@ -2268,6 +2546,7 @@ final class TranslationSessionStore {
                 createdAt: line.createdAt,
                 isFinal: line.isFinal,
                 revision: line.revision + 1,
+                speakerLabel: line.speakerLabel,
                 usesLongSessionDisplay: usesLongSessionMode
             )
         }
@@ -2392,6 +2671,13 @@ final class TranslationSessionStore {
         } else if geminiTranslationModel.isEnabled {
             preferredGeminiModel = geminiTranslationModel
         }
+        if let modelID = defaults.string(forKey: SettingsKey.metaTranscriptionModelID),
+           let model = MetaTranscriptionModel(rawValue: modelID) {
+            metaTranscriptionModel = model
+        }
+        if defaults.object(forKey: SettingsKey.metaSpeakerLabelsEnabled) != nil {
+            isMetaSpeakerLabelsEnabled = defaults.bool(forKey: SettingsKey.metaSpeakerLabelsEnabled)
+        }
         if defaults.object(forKey: SettingsKey.appleVoiceOutputEnabled) != nil {
             appleVoiceOutputEnabled = defaults.bool(forKey: SettingsKey.appleVoiceOutputEnabled)
         }
@@ -2455,6 +2741,7 @@ final class TranslationSessionStore {
             defaults.string(forKey: SettingsKey.openAITranscriptionModelID)
             == OpenAIRealtimeTranscriptionModel.gptLiveTranscribe.rawValue
         let restoredGeminiTranscriptionMode = geminiTranslationModel.isTranscription
+        let restoredMetaTranscriptionMode = metaTranscriptionModel.isEnabled
         if restoredGPTTranscriptionMode {
             if floatingCaptionDisplayModeBeforeTranscribeOnly == nil {
                 floatingCaptionDisplayModeBeforeTranscribeOnly = floatingCaptionDisplayMode
@@ -2462,6 +2749,7 @@ final class TranslationSessionStore {
             selectedModel = .appleSpeechOnly
             openAITranslationModel = .off
             geminiTranslationModel = .off
+            metaTranscriptionModel = .off
             openAITranscriptionModel = .gptLiveTranscribe
             floatingCaptionDisplayMode = .original
             isDubbingEnabled = false
@@ -2472,8 +2760,14 @@ final class TranslationSessionStore {
             selectedModel = .appleSystem
             openAITranscriptionModel = .off
             openAITranslationModel = .off
+            metaTranscriptionModel = .off
             floatingCaptionDisplayMode = .original
             isDubbingEnabled = false
+        } else if restoredMetaTranscriptionMode {
+            selectedModel = .appleSystem
+            openAITranscriptionModel = .off
+            openAITranslationModel = .off
+            geminiTranslationModel = .off
         } else if openAITranslationModel.isEnabled {
             openAITranscriptionModel = .off
         } else if openAITranscriptionModel == .gptRealtimeWhisper {
@@ -2497,6 +2791,8 @@ final class TranslationSessionStore {
         defaults.set(openAITranslationModel.id, forKey: SettingsKey.openAITranslationModelID)
         defaults.set(geminiTranslationModel.id, forKey: SettingsKey.geminiTranslationModelID)
         defaults.set(preferredGeminiModel.id, forKey: SettingsKey.preferredGeminiModelID)
+        defaults.set(metaTranscriptionModel.id, forKey: SettingsKey.metaTranscriptionModelID)
+        defaults.set(isMetaSpeakerLabelsEnabled, forKey: SettingsKey.metaSpeakerLabelsEnabled)
         defaults.set(isDubbingEnabled, forKey: SettingsKey.isDubbingEnabled)
         defaults.set(appleVoiceOutputEnabled, forKey: SettingsKey.appleVoiceOutputEnabled)
         defaults.set(providerVoiceOutputEnabled, forKey: SettingsKey.providerVoiceOutputEnabled)
@@ -4192,6 +4488,126 @@ final class TranslationSessionStore {
         }
     }
 
+    private func startMetaTurn(_ turnId: Int32) {
+        guard isRunning, !isPaused, isUsingMetaScribe else { return }
+        metaActiveTurnID = turnId
+    }
+
+    private func updateMetaPartialTranscript(_ text: String) {
+        guard isRunning, !isPaused, isUsingMetaScribe, let turnId = metaActiveTurnID else { return }
+        let sourceText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sourceText.isEmpty else { return }
+
+        lastRecognizedText = sourceText
+        lastRecognizedWasFinal = false
+        lastRecognitionAt = Date()
+        transcriptCleanupTask?.cancel()
+        let speakerLabel = metaTurnSpeakerLabels[turnId]
+
+        if let lineID = metaTurnLineIDs[turnId],
+           let index = lines.firstIndex(where: { $0.id == lineID }) {
+            let existingLine = lines[index]
+            lines[index] = CaptionLine(
+                id: existingLine.id,
+                sourceText: sourceText,
+                translatedText: existingLine.translatedText,
+                translatedSourceText: existingLine.translatedSourceText,
+                createdAt: existingLine.createdAt,
+                isFinal: false,
+                revision: existingLine.revision + 1,
+                speakerLabel: speakerLabel,
+                usesLongSessionDisplay: usesLongSessionMode
+            )
+        } else {
+            let line = CaptionLine(
+                sourceText: sourceText,
+                translatedText: AppText.translating,
+                createdAt: Date(),
+                isFinal: false,
+                revision: 1,
+                speakerLabel: speakerLabel,
+                usesLongSessionDisplay: usesLongSessionMode
+            )
+            metaTurnLineIDs[turnId] = line.id
+            sourceLanguageByLineID[line.id] = sourceLanguage
+            lines.append(line)
+        }
+        presentFloatingSourceText(sourceText)
+    }
+
+    private func labelMetaSpeaker(_ label: String) {
+        guard isRunning, !isPaused, isUsingMetaScribe, let turnId = metaActiveTurnID else { return }
+        metaTurnSpeakerLabels[turnId] = label
+        guard let lineID = metaTurnLineIDs[turnId],
+              let index = lines.firstIndex(where: { $0.id == lineID })
+        else {
+            return
+        }
+        let line = lines[index]
+        lines[index] = CaptionLine(
+            id: line.id,
+            sourceText: line.sourceText,
+            translatedText: line.translatedText,
+            translatedSourceText: line.translatedSourceText,
+            createdAt: line.createdAt,
+            isFinal: line.isFinal,
+            revision: line.revision + 1,
+            speakerLabel: label,
+            usesLongSessionDisplay: usesLongSessionMode
+        )
+    }
+
+    private func completeMetaTurn(_ turnId: Int32, transcript: String) {
+        guard isRunning, !isPaused, isUsingMetaScribe else { return }
+        let sourceText = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !sourceText.isEmpty else { return }
+        let speakerLabel = metaTurnSpeakerLabels[turnId]
+        let line: CaptionLine
+        if let lineID = metaTurnLineIDs[turnId],
+           let index = lines.firstIndex(where: { $0.id == lineID }) {
+            let existingLine = lines[index]
+            line = CaptionLine(
+                id: existingLine.id,
+                sourceText: sourceText,
+                translatedText: AppText.translating,
+                createdAt: existingLine.createdAt,
+                isFinal: true,
+                revision: existingLine.revision + 1,
+                speakerLabel: speakerLabel,
+                usesLongSessionDisplay: usesLongSessionMode
+            )
+            lines[index] = line
+        } else {
+            line = CaptionLine(
+                sourceText: sourceText,
+                translatedText: AppText.translating,
+                createdAt: Date(),
+                isFinal: true,
+                revision: 1,
+                speakerLabel: speakerLabel,
+                usesLongSessionDisplay: usesLongSessionMode
+            )
+            metaTurnLineIDs[turnId] = line.id
+            lines.append(line)
+        }
+        sourceLanguageByLineID[line.id] = sourceLanguage
+        lastRecognizedText = sourceText
+        lastRecognizedWasFinal = true
+        lastRecognitionAt = Date()
+        presentFloatingSourceText(sourceText)
+
+        let savedTurn = speakerLabel.map { "\($0): \(sourceText)" } ?? sourceText
+        metaSavedTranscriptText = metaSavedTranscriptText.isEmpty
+            ? savedTurn
+            : metaSavedTranscriptText + "\n" + savedTurn
+        stageTranscriptForSave(metaSavedTranscriptText)
+        requestTranslation(for: line, source: sourceLanguage, target: targetLanguage)
+
+        if metaActiveTurnID == turnId {
+            metaActiveTurnID = nil
+        }
+    }
+
     private func accumulatedRealtimeText(current: String, next: String) -> String {
         if next.hasPrefix(current) {
             return next
@@ -4272,18 +4688,27 @@ final class TranslationSessionStore {
         }
 
         let sourceText = line.sourceText
-        guard pendingTranslationSourceText != sourceText else { return }
-        pendingTranslationSourceText = sourceText
-        if latestTranslationRequest == nil {
+        let preservesOrdering = isUsingMetaScribe
+        if !preservesOrdering {
+            guard pendingTranslationSourceText != sourceText else { return }
+            pendingTranslationSourceText = sourceText
+        }
+        if latestTranslationRequest == nil, orderedTranslationRequests.isEmpty {
             translationBurstStartedAt = Date()
         }
-        latestTranslationRequest = TranslationRequest(
+        let request = TranslationRequest(
             line: line,
             sourceText: sourceText,
             translationSourceText: sourceText,
             source: source,
-            target: target
+            target: target,
+            preservesOrdering: preservesOrdering
         )
+        if preservesOrdering {
+            orderedTranslationRequests.append(request)
+        } else {
+            latestTranslationRequest = request
+        }
 
         guard translationTask == nil else {
             return
@@ -4297,8 +4722,7 @@ final class TranslationSessionStore {
     }
 
     private func processPendingTranslationRequests(generation: Int) async {
-        while !Task.isCancelled, let request = latestTranslationRequest {
-            latestTranslationRequest = nil
+        while !Task.isCancelled, let request = nextTranslationRequest() {
 
             do {
                 let delay = translationDebounceDelay(for: request.sourceText)
@@ -4306,7 +4730,7 @@ final class TranslationSessionStore {
                     try await Task.sleep(for: .milliseconds(delay))
                 }
 
-                if latestTranslationRequest != nil {
+                if !request.preservesOrdering, latestTranslationRequest != nil {
                     continue
                 }
 
@@ -4316,7 +4740,7 @@ final class TranslationSessionStore {
                     language: request.source
                 )
                 try Task.checkCancellation()
-                if latestTranslationRequest != nil {
+                if !request.preservesOrdering, latestTranslationRequest != nil {
                     continue
                 }
                 let translatedText = try await translateTranscript(
@@ -4353,6 +4777,42 @@ final class TranslationSessionStore {
             translationTask = nil
         }
     }
+
+    private func nextTranslationRequest() -> TranslationRequest? {
+        if !orderedTranslationRequests.isEmpty {
+            return orderedTranslationRequests.removeFirst()
+        }
+        defer { latestTranslationRequest = nil }
+        return latestTranslationRequest
+    }
+
+#if DEBUG
+    func verifyOrderedMetaTranslationLineIDsForTesting(_ lineIDs: [UUID]) -> [UUID] {
+        let requests = lineIDs.map { lineID in
+            let line = CaptionLine(
+                id: lineID,
+                sourceText: lineID.uuidString,
+                translatedText: "",
+                createdAt: Date(),
+                isFinal: true
+            )
+            return TranslationRequest(
+                line: line,
+                sourceText: line.sourceText,
+                translationSourceText: line.sourceText,
+                source: sourceLanguage,
+                target: targetLanguage,
+                preservesOrdering: true
+            )
+        }
+        orderedTranslationRequests.append(contentsOf: requests)
+        var result: [UUID] = []
+        while let request = nextTranslationRequest() {
+            result.append(request.line.id)
+        }
+        return result
+    }
+#endif
 
     private func preparedTranslationSourceText(
         _ sourceText: String,
@@ -4426,7 +4886,10 @@ final class TranslationSessionStore {
         if finalizesRequest, pendingTranslationSourceText == sourceText {
             pendingTranslationSourceText = ""
         }
-        stageTranscriptForSave(currentSourceText, translatedText: organizedTranslatedText)
+        stageTranscriptForSave(
+            isUsingMetaScribe ? metaSavedTranscriptText : currentSourceText,
+            translatedText: organizedTranslatedText
+        )
 
         lines[index] = CaptionLine(
             id: line.id,
@@ -4436,6 +4899,7 @@ final class TranslationSessionStore {
             createdAt: line.createdAt,
             isFinal: line.isFinal,
             revision: lines[index].revision + 1,
+            speakerLabel: lines[index].speakerLabel,
             usesLongSessionDisplay: usesLongSessionMode
         )
 
@@ -4460,6 +4924,7 @@ final class TranslationSessionStore {
                     createdAt: line.createdAt,
                     isFinal: line.isFinal,
                     revision: line.revision + 1,
+                    speakerLabel: line.speakerLabel,
                     usesLongSessionDisplay: usesLongSessionMode
                 )
             }
@@ -4488,6 +4953,7 @@ final class TranslationSessionStore {
             createdAt: line.createdAt,
             isFinal: line.isFinal,
             revision: lines[index].revision + 1,
+            speakerLabel: lines[index].speakerLabel,
             usesLongSessionDisplay: usesLongSessionMode
         )
         updateFloatingTranslationPresentation(message, sourceText: sourceText)
@@ -4680,6 +5146,26 @@ final class TranslationSessionStore {
         guard service === geminiLiveTranslator else {
             return nil
         }
+        if requiresRunning {
+            return pipelineLifecycle.acceptsSample(generation: generation) ? generation : nil
+        }
+        return pipelineLifecycle.isActive(generation: generation) ? generation : nil
+    }
+
+    private func activeGeneration(
+        for service: MetaVoiceTranscribeService,
+        requiresRunning: Bool
+    ) -> UInt64? {
+        guard let generation = activeCaptionerGeneration else {
+            guard requiresRunning,
+                  isRunning,
+                  pipelineLifecycle.phase == .stopped
+            else {
+                return nil
+            }
+            return pipelineLifecycle.generation
+        }
+        guard service === metaVoiceTranscriber else { return nil }
         if requiresRunning {
             return pipelineLifecycle.acceptsSample(generation: generation) ? generation : nil
         }
@@ -5086,6 +5572,61 @@ extension TranslationSessionStore: GeminiLiveTranslationServiceDelegate {
                 for: service,
                 requiresRunning: false
             ) else {
+                return
+            }
+            handleFatalPipelineError(error, generation: generation)
+        }
+    }
+}
+
+extension TranslationSessionStore: MetaVoiceTranscribeServiceDelegate {
+    nonisolated func metaVoiceTranscribeService(
+        _ service: MetaVoiceTranscribeService,
+        didStartTurn turnId: Int32
+    ) {
+        Task { @MainActor in
+            guard activeGeneration(for: service, requiresRunning: true) != nil else { return }
+            startMetaTurn(turnId)
+        }
+    }
+
+    nonisolated func metaVoiceTranscribeService(
+        _ service: MetaVoiceTranscribeService,
+        didReceivePartialTranscript text: String
+    ) {
+        Task { @MainActor in
+            guard activeGeneration(for: service, requiresRunning: true) != nil else { return }
+            updateMetaPartialTranscript(text)
+        }
+    }
+
+    nonisolated func metaVoiceTranscribeService(
+        _ service: MetaVoiceTranscribeService,
+        didLabelSpeaker label: String
+    ) {
+        Task { @MainActor in
+            guard activeGeneration(for: service, requiresRunning: true) != nil else { return }
+            labelMetaSpeaker(label)
+        }
+    }
+
+    nonisolated func metaVoiceTranscribeService(
+        _ service: MetaVoiceTranscribeService,
+        didCompleteTurn turnId: Int32,
+        transcript: String
+    ) {
+        Task { @MainActor in
+            guard activeGeneration(for: service, requiresRunning: true) != nil else { return }
+            completeMetaTurn(turnId, transcript: transcript)
+        }
+    }
+
+    nonisolated func metaVoiceTranscribeService(
+        _ service: MetaVoiceTranscribeService,
+        didFail error: Error
+    ) {
+        Task { @MainActor in
+            guard let generation = activeGeneration(for: service, requiresRunning: false) else {
                 return
             }
             handleFatalPipelineError(error, generation: generation)

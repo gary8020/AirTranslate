@@ -61,6 +61,84 @@ enum AppText {
         japanese: "リアルタイム記録翻訳",
         chineseSimplified: "实时转写翻译"
     )
+    static let readyToStartListening = localized(
+        english: "Ready to start listening",
+        korean: "듣기 시작할 준비가 됐어요",
+        japanese: "リスニングを始める準備ができました",
+        chineseSimplified: "已准备好开始聆听"
+    )
+    static let startListening = localized(
+        english: "Start Listening",
+        korean: "듣기 시작",
+        japanese: "リスニングを開始",
+        chineseSimplified: "开始聆听"
+    )
+    static let permissionRequired = localized(
+        english: "Permission required",
+        korean: "권한이 필요합니다",
+        japanese: "権限が必要です",
+        chineseSimplified: "需要权限"
+    )
+    static let moreControls = localized(
+        english: "More Controls",
+        korean: "더보기",
+        japanese: "その他のコントロール",
+        chineseSimplified: "更多控制"
+    )
+    static let languagePair = localized(
+        english: "Language Pair",
+        korean: "언어 조합",
+        japanese: "言語ペア",
+        chineseSimplified: "语言组合"
+    )
+    static let volume = localized(
+        english: "Volume",
+        korean: "음량",
+        japanese: "音量",
+        chineseSimplified: "音量"
+    )
+    static let lockedDuringCapture = localized(
+        english: "Locked during capture",
+        korean: "캡처 중 잠김",
+        japanese: "キャプチャ中はロック中",
+        chineseSimplified: "采集期间已锁定"
+    )
+    static let lockedDuringSession = localized(
+        english: "Locked during session",
+        korean: "세션 중 잠김",
+        japanese: "セッション中はロック中",
+        chineseSimplified: "会话期间已锁定"
+    )
+    static let voiceShort = localized(
+        english: "Voice",
+        korean: "음성",
+        japanese: "音声",
+        chineseSimplified: "语音"
+    )
+    static let turnVoiceOutputOn = localized(
+        english: "Turn Voice Output On",
+        korean: "음성 출력 켜기",
+        japanese: "音声出力をオン",
+        chineseSimplified: "开启语音输出"
+    )
+    static let turnVoiceOutputOff = localized(
+        english: "Turn Voice Output Off",
+        korean: "음성 출력 끄기",
+        japanese: "音声出力をオフ",
+        chineseSimplified: "关闭语音输出"
+    )
+    static let speakerLabelsOn = localized(
+        english: "Speaker labels on",
+        korean: "화자 라벨 켜짐",
+        japanese: "話者ラベル オン",
+        chineseSimplified: "说话人标签已开启"
+    )
+    static let gptMode = localized(
+        english: "GPT Mode",
+        korean: "GPT 모드",
+        japanese: "GPTモード",
+        chineseSimplified: "GPT 模式"
+    )
     static let ready = localized(english: "Ready", korean: "준비됨", japanese: "準備完了", chineseSimplified: "就绪")
     static let stopped = localized(english: "Stopped", korean: "중지됨", japanese: "停止中", chineseSimplified: "已停止")
     static let paused = localized(english: "Paused", korean: "일시정지됨", japanese: "一時停止中", chineseSimplified: "已暂停")
@@ -192,6 +270,24 @@ enum AppText {
         japanese: "Gemini APIキーを削除",
         chineseSimplified: "删除 Gemini API key"
     )
+    static let metaAPIKeyPlaceholder = localized(
+        english: "Paste Meta Model API key",
+        korean: "Meta Model API 키 붙여넣기",
+        japanese: "Meta Model APIキーを貼り付け",
+        chineseSimplified: "粘贴 Meta Model API key"
+    )
+    static let saveMetaAPIKey = localized(
+        english: "Save Meta Model API Key",
+        korean: "Meta Model API 키 저장",
+        japanese: "Meta Model APIキーを保存",
+        chineseSimplified: "保存 Meta Model API key"
+    )
+    static let removeMetaAPIKey = localized(
+        english: "Remove Meta Model API Key",
+        korean: "Meta Model API 키 삭제",
+        japanese: "Meta Model APIキーを削除",
+        chineseSimplified: "删除 Meta Model API key"
+    )
     static let openAIAPIKeySaved = localized(
         english: "OpenAI API key saved in Keychain.",
         korean: "OpenAI API 키가 Keychain에 저장되었습니다."
@@ -249,6 +345,54 @@ enum AppText {
         japanese: "Gemini Liveを使用する前に、設定でGemini APIキーを追加してください。",
         chineseSimplified: "使用 Gemini Live 前，请先在设置中添加 Gemini API key。"
     )
+    static let metaAPIKey = localized(
+        english: "Meta Model API Key",
+        korean: "Meta Model API 키",
+        japanese: "Meta Model APIキー",
+        chineseSimplified: "Meta Model API Key"
+    )
+    static let metaAPIKeyDescription = localized(
+        english: "AirTranslate stores this key in macOS Keychain and uses it only for Meta Scribe.",
+        korean: "AirTranslate는 이 키를 macOS Keychain에 저장하고 Meta 스크라이브에만 사용합니다.",
+        japanese: "AirTranslateはこのキーをmacOS Keychainに保存し、Meta Scribeでのみ使用します。",
+        chineseSimplified: "AirTranslate 会将此密钥存储在 macOS Keychain 中，并且仅用于 Meta Scribe。"
+    )
+    static let replaceSavedMetaAPIKeyDescription = localized(
+        english: "A Meta Model key is saved in macOS Keychain. Enter and save a new key to replace it.",
+        korean: "Meta Model 키가 macOS Keychain에 저장되어 있습니다. 새 키를 입력하고 저장하면 교체됩니다.",
+        japanese: "Meta ModelキーはmacOS Keychainに保存済みです。新しいキーを入力して保存すると置き換えます。",
+        chineseSimplified: "Meta Model 密钥已保存在 macOS Keychain 中。输入并保存新密钥即可替换。"
+    )
+    static let metaAPIKeySaved = localized(
+        english: "Meta Model API key saved in Keychain.",
+        korean: "Meta Model API 키가 Keychain에 저장되었습니다.",
+        japanese: "Meta Model APIキーをKeychainに保存しました。",
+        chineseSimplified: "Meta Model API key 已保存到 Keychain。"
+    )
+    static let metaAPIKeyRemoved = localized(
+        english: "Meta Model API key removed.",
+        korean: "Meta Model API 키가 삭제되었습니다.",
+        japanese: "Meta Model APIキーを削除しました。",
+        chineseSimplified: "Meta Model API key 已删除。"
+    )
+    static let metaAPIKeyConfigured = localized(
+        english: "Meta Model API key saved",
+        korean: "Meta Model API 키 저장됨",
+        japanese: "Meta Model APIキー保存済み",
+        chineseSimplified: "Meta Model API key 已保存"
+    )
+    static let metaAPIKeyNotConfigured = localized(
+        english: "Meta Model API key required",
+        korean: "Meta Model API 키 필요",
+        japanese: "Meta Model APIキーが必要",
+        chineseSimplified: "需要 Meta Model API key"
+    )
+    static let metaAPIKeyMissing = localized(
+        english: "Add a Meta Model API key in Settings before using Meta Scribe.",
+        korean: "Meta 스크라이브를 사용하려면 설정에서 Meta Model API 키를 먼저 입력하세요.",
+        japanese: "Meta Scribeを使用する前に、設定でMeta Model APIキーを追加してください。",
+        chineseSimplified: "使用 Meta Scribe 前，请先在设置中添加 Meta Model API key。"
+    )
     static let startBlockedLocalAssetsChecking = localized(
         english: "Still checking local language assets. Try again in a moment.",
         korean: "로컬 언어 자산을 아직 확인하는 중입니다. 잠시 후 다시 시작하세요."
@@ -285,6 +429,18 @@ enum AppText {
         english: "The stored Gemini API key could not be read.",
         korean: "저장된 Gemini API 키를 읽을 수 없습니다."
     )
+    static let metaAPIKeyEmpty = localized(
+        english: "Enter a Meta Model API key before saving.",
+        korean: "저장하기 전에 Meta Model API 키를 입력하세요.",
+        japanese: "保存する前にMeta Model APIキーを入力してください。",
+        chineseSimplified: "保存前请输入 Meta Model API key。"
+    )
+    static let metaAPIKeyInvalidStoredValue = localized(
+        english: "The stored Meta Model API key could not be read.",
+        korean: "저장된 Meta Model API 키를 읽을 수 없습니다.",
+        japanese: "保存されたMeta Model APIキーを読み取れませんでした。",
+        chineseSimplified: "无法读取已保存的 Meta Model API key。"
+    )
     static let appleProcessingMode = localized(english: "Apple Mode", korean: "Apple 기본 모드", japanese: "Apple標準モード", chineseSimplified: "Apple 默认模式")
     static let appleProcessingModeDescription = localized(
         english: "The default local workflow. Keep this as the base, then add OpenAI Realtime below only when needed.",
@@ -297,6 +453,26 @@ enum AppText {
         japanese: "Gemini Live",
         chineseSimplified: "Gemini Live"
     )
+    static let metaScribe = localized(
+        english: "Meta Scribe",
+        korean: "Meta 스크라이브",
+        japanese: "Meta Scribe",
+        chineseSimplified: "Meta Scribe"
+    )
+    static let metaScribeDetail = localized(
+        english: "Muse Voice Transcribe · realtime transcription with speaker labels, 25 languages with code-switching",
+        korean: "Muse Voice Transcribe · 화자 라벨과 코드 스위칭을 지원하는 25개 언어 실시간 전사",
+        japanese: "Muse Voice Transcribe · 話者ラベルとコードスイッチング対応の25言語リアルタイム文字起こし",
+        chineseSimplified: "Muse Voice Transcribe · 支持说话人标签与语码转换的 25 种语言实时转写"
+    )
+    static func speakerLabel(_ label: String) -> String {
+        localized(
+            english: "Speaker \(label)",
+            korean: "화자 \(label)",
+            japanese: "話者 \(label)",
+            chineseSimplified: "说话人 \(label)"
+        )
+    }
     static let geminiTranslationModel = localized(
         english: "Gemini Live Model",
         korean: "Gemini Live 모델",
@@ -409,6 +585,18 @@ enum AppText {
         japanese: "Google AI Studioを開く",
         chineseSimplified: "打开 Google AI Studio"
     )
+    static let metaAPIKeyPlatformPrompt = localized(
+        english: "Need a key?",
+        korean: "키가 필요하신가요?",
+        japanese: "キーが必要ですか？",
+        chineseSimplified: "需要 key 吗？"
+    )
+    static let metaAPIKeyPlatformLink = localized(
+        english: "Open Meta Developer Dashboard",
+        korean: "Meta 개발자 대시보드 열기",
+        japanese: "Meta開発者ダッシュボードを開く",
+        chineseSimplified: "打开 Meta 开发者控制台"
+    )
     static let openAIRealtimeTranslationOnlySource = localized(
         english: "OpenAI realtime translation",
         korean: "OpenAI 실시간 번역"
@@ -467,6 +655,72 @@ enum AppText {
         chineseSimplified: "隐藏悬浮字幕"
     )
     static let openMainWindow = localized(english: "Open Main Window", korean: "메인 창 열기")
+    static let openAirTranslate = localized(
+        english: "Open AirTranslate",
+        korean: "AirTranslate 열기",
+        japanese: "AirTranslateを開く",
+        chineseSimplified: "打开 AirTranslate"
+    )
+    static let mainWindow = localized(
+        english: "Main window",
+        korean: "메인 윈도우",
+        japanese: "メインウインドウ",
+        chineseSimplified: "主窗口"
+    )
+    static let selected = localized(
+        english: "Selected",
+        korean: "선택됨",
+        japanese: "選択中",
+        chineseSimplified: "已选择"
+    )
+    static let captionStyle = localized(
+        english: "Caption Style",
+        korean: "자막 스타일",
+        japanese: "字幕スタイル",
+        chineseSimplified: "字幕样式"
+    )
+    static let size = localized(
+        english: "Size",
+        korean: "크기",
+        japanese: "サイズ",
+        chineseSimplified: "大小"
+    )
+    static let lines = localized(
+        english: "Lines",
+        korean: "줄 수",
+        japanese: "行数",
+        chineseSimplified: "行数"
+    )
+    static let settings = localized(
+        english: "Settings",
+        korean: "설정",
+        japanese: "設定",
+        chineseSimplified: "设置"
+    )
+    static let openSettings = localized(
+        english: "Open Settings",
+        korean: "설정 열기",
+        japanese: "設定を開く",
+        chineseSimplified: "打开设置"
+    )
+    static let quit = localized(
+        english: "Quit",
+        korean: "종료",
+        japanese: "終了",
+        chineseSimplified: "退出"
+    )
+    static let quitAirTranslate = localized(
+        english: "Quit AirTranslate",
+        korean: "AirTranslate 종료",
+        japanese: "AirTranslateを終了",
+        chineseSimplified: "退出 AirTranslate"
+    )
+    static let both = localized(
+        english: "Both",
+        korean: "원문+번역",
+        japanese: "両方",
+        chineseSimplified: "两者"
+    )
     static let floatingDisplay = localized(english: "Floating Display", korean: "플로팅 표시")
     static let floatingDisplayDescription = localized(
         english: "Choose what appears in the detachable floating caption window.",
@@ -709,6 +963,12 @@ enum AppText {
         english: "Connecting to Gemini Live Translate...",
         korean: "Gemini 실시간 번역에 연결 중..."
     )
+    static let connectingMetaScribe = localized(
+        english: "Connecting to Meta Scribe...",
+        korean: "Meta 스크라이브에 연결 중...",
+        japanese: "Meta Scribeに接続中...",
+        chineseSimplified: "正在连接 Meta Scribe..."
+    )
     static let connectingGPTTranscription = localized(
         english: "Connecting to GPT transcription...",
         korean: "GPT 전사에 연결 중...",
@@ -846,6 +1106,15 @@ enum AppText {
         )
     }
 
+    static func metaAPIKeychainFailed(_ status: OSStatus) -> String {
+        localized(
+            english: "Keychain operation failed: \(status).",
+            korean: "Keychain 작업 실패: \(status).",
+            japanese: "Keychain操作に失敗しました: \(status)。",
+            chineseSimplified: "Keychain 操作失败：\(status)。"
+        )
+    }
+
     static let openAIInvalidResponse = localized(
         english: "OpenAI returned an invalid response.",
         korean: "OpenAI가 올바르지 않은 응답을 반환했습니다."
@@ -876,6 +1145,30 @@ enum AppText {
     static let geminiConnectionFailed = localized(
         english: "Gemini Live connection failed. Check your network and API key, then try again.",
         korean: "Gemini Live 연결에 실패했습니다. 네트워크와 API 키를 확인한 뒤 다시 시도하세요."
+    )
+    static let metaInvalidResponse = localized(
+        english: "Meta Scribe returned an invalid response.",
+        korean: "Meta 스크라이브가 올바르지 않은 응답을 반환했습니다.",
+        japanese: "Meta Scribeから無効な応答が返されました。",
+        chineseSimplified: "Meta Scribe 返回了无效响应。"
+    )
+    static let metaConnectionFailed = localized(
+        english: "Meta Scribe connection failed. Check your network and API key, then try again.",
+        korean: "Meta 스크라이브 연결에 실패했습니다. 네트워크와 API 키를 확인한 뒤 다시 시도하세요.",
+        japanese: "Meta Scribeへの接続に失敗しました。ネットワークとAPIキーを確認してください。",
+        chineseSimplified: "Meta Scribe 连接失败。请检查网络和 API key 后重试。"
+    )
+    static let metaRateLimited = localized(
+        english: "Meta Scribe is rate limited. Wait a moment, then try again.",
+        korean: "Meta 스크라이브 요청 한도에 도달했습니다. 잠시 후 다시 시도하세요.",
+        japanese: "Meta Scribeの利用制限に達しました。しばらくしてから再試行してください。",
+        chineseSimplified: "Meta Scribe 已达到速率限制。请稍后重试。"
+    )
+    static let metaInvalidRequest = localized(
+        english: "Meta Scribe rejected the session configuration.",
+        korean: "Meta 스크라이브가 세션 구성을 거부했습니다.",
+        japanese: "Meta Scribeがセッション設定を拒否しました。",
+        chineseSimplified: "Meta Scribe 拒绝了会话配置。"
     )
 
     static let translationCancelled = localized(

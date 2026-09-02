@@ -12,6 +12,9 @@ struct SettingsView: View {
     @State private var geminiAPIKey = ""
     @State private var geminiKeyFeedback: APIKeyFeedback?
     @State private var isConfirmingGeminiKeyRemoval = false
+    @State private var metaAPIKey = ""
+    @State private var metaKeyFeedback: APIKeyFeedback?
+    @State private var isConfirmingMetaKeyRemoval = false
     @State private var screenRecordingPermission: SettingsPermissionState = .unknown
     @State private var microphonePermission: SettingsPermissionState = .unknown
     @State private var speechRecognitionPermission: SettingsPermissionState = .unknown
@@ -26,21 +29,24 @@ struct SettingsView: View {
                 )
         } detail: {
             ScrollView {
-                VStack(alignment: .leading, spacing: 22) {
+                VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.lg) {
                     SettingsPageHeader(category: selectedCategory.wrappedValue)
 
                     selectedContent
                 }
                 .frame(maxWidth: AirTranslateDesign.settingsDetailMaximum, alignment: .leading)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 28)
+                .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+                .padding(.vertical, AirTranslateDesign.Spacing.xl)
             }
             .id(selectedCategoryID)
             .scrollIndicators(.automatic)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(AirTranslateDesign.Palette.canvas)
         }
         .navigationSplitViewStyle(.balanced)
+        .tint(AirTranslateDesign.Palette.accent)
+        .background(AirTranslateDesign.Palette.canvas)
         .frame(
             minWidth: AirTranslateDesign.settingsWindowMinimumWidth,
             maxWidth: .infinity,
@@ -106,12 +112,13 @@ struct SettingsView: View {
                         Text(mode.title).tag(mode)
                     }
                 }
-                .pickerStyle(.segmented)
+                .pickerStyle(.menu)
                 .labelsHidden()
-                .frame(minWidth: 300, idealWidth: 340, maxWidth: .infinity)
+                .frame(minWidth: 190, idealWidth: 220, maxWidth: 260)
                 .allowsHitTesting(segmentedControlAllowsHitTesting())
                 .accessibilityRespondsToUserInteraction(segmentedControlAllowsHitTesting())
                 .opacity(isSessionConfigurationLocked ? 0.6 : 1)
+                .help(SettingsCopy.processingEngineDetail)
                 .accessibilityLabel(SettingsCopy.processingEngine)
                 .accessibilityValue(processingModeSelection.wrappedValue.title)
                 .accessibilityHint(
@@ -134,6 +141,7 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .tint(AirTranslateDesign.Palette.accent)
                     .labelsHidden()
                     .frame(minWidth: 230, idealWidth: 300, maxWidth: .infinity)
                     .allowsHitTesting(segmentedControlAllowsHitTesting())
@@ -187,7 +195,7 @@ struct SettingsView: View {
                 ) {
                     Text(OpenAIRealtimeTranscriptionModel.gptLiveTranscribe.title)
                         .font(.callout.weight(.semibold))
-                        .foregroundStyle(Color.accentColor)
+                        .foregroundStyle(AirTranslateDesign.Palette.accent)
                 }
                 SettingsNoticeRow(text: AppText.gptTranscriptionSourceOnly, systemImage: "text.quote")
             }
@@ -197,6 +205,40 @@ struct SettingsView: View {
                     text: AppText.geminiAPIKeyMissing,
                     systemImage: "key",
                     actionTitle: SettingsCopy.enterGeminiAPIKey
+                ) {
+                    selectedCategory.wrappedValue = .apiKeys
+                }
+            }
+
+            if processingModeSelection.wrappedValue == .meta {
+                SettingsControlRow(
+                    title: AppText.metaScribe,
+                    detail: AppText.metaScribeDetail,
+                    systemImage: "person.2.wave.2"
+                ) {
+                    Text(MetaTranscriptionModel.museVoiceTranscribe.title)
+                        .font(.callout.weight(.semibold))
+                        .foregroundStyle(AirTranslateDesign.Palette.accent)
+                }
+
+                SettingsControlRow(
+                    title: SettingsCopy.speakerLabels,
+                    detail: SettingsCopy.speakerLabelsDetail,
+                    systemImage: "person.2"
+                ) {
+                    Toggle("", isOn: $session.isMetaSpeakerLabelsEnabled)
+                        .labelsHidden()
+                        .disabled(isSessionConfigurationLocked)
+                        .tint(AirTranslateDesign.Palette.accent)
+                        .accessibilityLabel(SettingsCopy.speakerLabels)
+                }
+            }
+
+            if processingModeSelection.wrappedValue == .meta, !session.hasMetaAPIKey {
+                SettingsNoticeActionRow(
+                    text: AppText.metaAPIKeyMissing,
+                    systemImage: "key",
+                    actionTitle: SettingsCopy.enterMetaAPIKey
                 ) {
                     selectedCategory.wrappedValue = .apiKeys
                 }
@@ -232,11 +274,13 @@ struct SettingsView: View {
 
             SettingsValueRow(
                 title: AppText.autoDetectInput,
-                detail: session.isUsingGeminiTranscriptionMode
-                    ? SettingsCopy.geminiAutoDetectDetail
-                    : SettingsCopy.autoDetectDetail,
+                detail: session.isUsingMetaScribe
+                    ? SettingsCopy.metaAutoDetectDetail
+                    : session.isUsingGeminiTranscriptionMode
+                        ? SettingsCopy.geminiAutoDetectDetail
+                        : SettingsCopy.autoDetectDetail,
                 systemImage: "sparkles",
-                value: session.isUsingGeminiTranscriptionMode
+                value: session.isUsingGeminiTranscriptionMode || session.isUsingMetaScribe
                     ? SettingsCopy.enabled
                     : SettingsCopy.comingSoon
             )
@@ -249,7 +293,7 @@ struct SettingsView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "key.fill")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(session.hasOpenAIAPIKey ? Color.green : Color.secondary)
+                        .foregroundStyle(session.hasOpenAIAPIKey ? AirTranslateDesign.Palette.live : AirTranslateDesign.Palette.textSecondary)
                         .frame(width: 24)
 
                     SecureField(AppText.openAIAPIKeyPlaceholder, text: $openAIAPIKey)
@@ -323,7 +367,7 @@ struct SettingsView: View {
             ) {
                 Text(session.openAITranslationModel.isEnabled ? session.openAITranslationModel.title : OpenAIRealtimeTranslationModel.gptRealtimeTranslate.title)
                     .font(.callout.weight(.semibold))
-                    .foregroundStyle(Color.secondary)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.78)
             }
@@ -341,6 +385,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 24) {
             apiSettings
             geminiSettings
+            metaSettings
         }
     }
 
@@ -361,6 +406,7 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .tint(AirTranslateDesign.Palette.accent)
                 .labelsHidden()
                 .frame(width: 190)
                 .allowsHitTesting(segmentedControlAllowsHitTesting())
@@ -418,6 +464,7 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .tint(AirTranslateDesign.Palette.accent)
                     .labelsHidden()
                     .frame(width: 170)
                     .allowsHitTesting(
@@ -508,6 +555,7 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .tint(AirTranslateDesign.Palette.accent)
                 .labelsHidden()
                 .frame(width: 190)
                 .allowsHitTesting(segmentedControlAllowsHitTesting())
@@ -601,6 +649,7 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .tint(AirTranslateDesign.Palette.accent)
                     .labelsHidden()
                     .frame(width: 232)
                 }
@@ -616,6 +665,7 @@ struct SettingsView: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .tint(AirTranslateDesign.Palette.accent)
                     .labelsHidden()
                     .frame(width: 252)
                 }
@@ -747,7 +797,7 @@ struct SettingsView: View {
                 HStack(spacing: 10) {
                     Image(systemName: "key.fill")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(session.hasGeminiAPIKey ? Color.green : Color.secondary)
+                        .foregroundStyle(session.hasGeminiAPIKey ? AirTranslateDesign.Palette.live : AirTranslateDesign.Palette.textSecondary)
                         .frame(width: 24)
 
                     SecureField(AppText.geminiAPIKeyPlaceholder, text: $geminiAPIKey)
@@ -825,13 +875,117 @@ struct SettingsView: View {
                         : session.preferredGeminiModel.title
                 )
                     .font(.callout.weight(.semibold))
-                    .foregroundStyle(selectedProcessingMode == .gemini ? Color.accentColor : Color.secondary)
+                    .foregroundStyle(selectedProcessingMode == .gemini ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
 
+    private var metaSettings: some View {
+        SettingsGroup(title: AppText.metaScribe) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 10) {
+                    Image(systemName: "key.fill")
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(session.hasMetaAPIKey ? AirTranslateDesign.Palette.live : AirTranslateDesign.Palette.textSecondary)
+                        .frame(width: 24)
+
+                    SecureField(AppText.metaAPIKeyPlaceholder, text: $metaAPIKey)
+                        .textFieldStyle(.roundedBorder)
+                        .onSubmit(saveMetaAPIKey)
+                        .accessibilityLabel(AppText.metaAPIKey)
+                        .accessibilityHint(
+                            session.hasMetaAPIKey
+                                ? SettingsCopy.replaceSavedAPIKeyHint
+                                : SettingsCopy.saveNewAPIKeyHint
+                        )
+
+                    Button {
+                        saveMetaAPIKey()
+                    } label: {
+                        Image(systemName: "checkmark.circle.fill")
+                    }
+                    .disabled(metaAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .help(AppText.saveMetaAPIKey)
+                    .accessibilityLabel(AppText.saveMetaAPIKey)
+
+                    Button {
+                        isConfirmingMetaKeyRemoval = true
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .disabled(!session.hasMetaAPIKey)
+                    .help(AppText.removeMetaAPIKey)
+                    .accessibilityLabel(AppText.removeMetaAPIKey)
+                    .confirmationDialog(
+                        AppText.localized(
+                            english: "Remove the saved Meta Model API key from Keychain?",
+                            korean: "Keychain에 저장된 Meta Model API 키를 삭제할까요?",
+                            japanese: "Keychainに保存されたMeta Model APIキーを削除しますか？",
+                            chineseSimplified: "要从 Keychain 中删除已保存的 Meta Model API key 吗？"
+                        ),
+                        isPresented: $isConfirmingMetaKeyRemoval
+                    ) {
+                        Button(AppText.removeMetaAPIKey, role: .destructive) {
+                            removeMetaAPIKey()
+                        }
+                        Button(AppText.cancel, role: .cancel) {}
+                    }
+                }
+
+                APIKeyStatusRow(
+                    feedback: $metaKeyFeedback,
+                    fallback: APIKeyFeedback(
+                        kind: session.hasMetaAPIKey ? .success : .warning,
+                        message: session.hasMetaAPIKey
+                            ? AppText.metaAPIKeyConfigured
+                            : AppText.metaAPIKeyNotConfigured
+                    )
+                )
+
+                Text(
+                    session.hasMetaAPIKey
+                        ? AppText.replaceSavedMetaAPIKeyDescription
+                        : AppText.metaAPIKeyDescription
+                )
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 34)
+            }
+            .padding(.horizontal, 4)
+            .padding(.vertical, 3)
+
+            SettingsControlRow(
+                title: AppText.metaScribe,
+                detail: AppText.metaScribeDetail,
+                systemImage: "person.2.wave.2"
+            ) {
+                Text(MetaTranscriptionModel.museVoiceTranscribe.title)
+                    .font(.callout.weight(.semibold))
+                    .foregroundStyle(selectedProcessingMode == .meta ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
+            }
+
+            HStack(spacing: 6) {
+                Text(AppText.metaAPIKeyPlatformPrompt)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Link(
+                    AppText.metaAPIKeyPlatformLink,
+                    destination: URL(string: "https://dev.meta.ai")!
+                )
+                .tint(AirTranslateDesign.Palette.accent)
+                .font(.caption.weight(.semibold))
+            }
+            .padding(.vertical, 9)
+            .settingsRowSeparator()
+        }
+    }
+
     private var selectedProcessingMode: SettingsProcessingMode {
+        if session.isUsingMetaScribe {
+            return .meta
+        }
         if session.isUsingGPTTranscriptionMode {
             return .gptTranscription
         }
@@ -882,6 +1036,8 @@ struct SettingsView: View {
                 session.useGPTTranscriptionMode()
             case .gemini:
                 session.usePreferredGeminiMode()
+            case .meta:
+                session.useMetaScribeMode()
             }
         }
     }
@@ -991,6 +1147,33 @@ struct SettingsView: View {
         geminiAPIKey = ""
     }
 
+    private func saveMetaAPIKey() {
+        let trimmedKey = metaAPIKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedKey.isEmpty else {
+            metaKeyFeedback = APIKeyFeedback(kind: .error, message: AppText.metaAPIKeyEmpty)
+            return
+        }
+        do {
+            try session.saveMetaAPIKey(trimmedKey)
+        } catch {
+            metaKeyFeedback = APIKeyFeedback(kind: .error, message: error.localizedDescription)
+            return
+        }
+        metaKeyFeedback = APIKeyFeedback(kind: .success, message: AppText.metaAPIKeySaved)
+        metaAPIKey = ""
+    }
+
+    private func removeMetaAPIKey() {
+        do {
+            try session.removeMetaAPIKey()
+        } catch {
+            metaKeyFeedback = APIKeyFeedback(kind: .error, message: error.localizedDescription)
+            return
+        }
+        metaKeyFeedback = APIKeyFeedback(kind: .warning, message: AppText.metaAPIKeyRemoved)
+        metaAPIKey = ""
+    }
+
     private var appVersionSummary: String {
         RunningAppVersion.current().summary ?? SettingsCopy.versionUnavailable
     }
@@ -1049,11 +1232,11 @@ private struct APIKeyFeedback: Equatable {
     var color: Color {
         switch kind {
         case .success:
-            .green
+            AirTranslateDesign.Palette.live
         case .warning:
-            .orange
+            AirTranslateDesign.Palette.warning
         case .error:
-            .red
+            AirTranslateDesign.Palette.danger
         }
     }
 }
@@ -1092,6 +1275,7 @@ private enum SettingsProcessingMode: String, CaseIterable, Identifiable {
     case openAI
     case gptTranscription
     case gemini
+    case meta
 
     var id: String { rawValue }
 
@@ -1115,6 +1299,8 @@ private enum SettingsProcessingMode: String, CaseIterable, Identifiable {
             )
         case .gemini:
             "Gemini"
+        case .meta:
+            "Meta"
         }
     }
 }
@@ -1223,8 +1409,10 @@ private enum SettingsCopy {
         korean: "기본 번역 방식과 언어 동작을 설정합니다."
     )
     static let apiKeysDetail = AppText.localized(
-        english: "Save provider keys for OpenAI and Gemini Live modes.",
-        korean: "OpenAI와 Gemini Live 모드에 사용할 키를 저장합니다."
+        english: "Save provider keys for OpenAI, Gemini Live, and Meta Scribe modes.",
+        korean: "OpenAI, Gemini Live, Meta 스크라이브 모드에 사용할 키를 저장합니다.",
+        japanese: "OpenAI、Gemini Live、Meta Scribeモードで使用するキーを保存します。",
+        chineseSimplified: "保存 OpenAI、Gemini Live 和 Meta Scribe 模式使用的密钥。"
     )
     static let audioDetail = AppText.localized(
         english: "Choose where AirTranslate listens from.",
@@ -1257,10 +1445,10 @@ private enum SettingsCopy {
     static let modeSettings = AppText.localized(english: "Mode Settings", korean: "모드 설정")
     static let processingEngine = AppText.localized(english: "Processing Mode", korean: "처리 방식")
     static let processingEngineDetail = AppText.localized(
-        english: "Choose exactly one active engine: local Apple mode, GPT Realtime, GPT Transcription, or Gemini Live.",
-        korean: "Apple 기본 모드, GPT Realtime, GPT 전사, Gemini Live 중 하나만 활성화합니다.",
-        japanese: "Appleローカルモード、GPT Realtime、GPT文字起こし、Gemini Liveから1つだけ有効にします。",
-        chineseSimplified: "仅启用一种处理方式：Apple 本地模式、GPT Realtime、GPT 转写或 Gemini Live。"
+        english: "Choose exactly one active engine: local Apple mode, GPT Realtime, GPT Transcription, Gemini Live, or Meta Scribe.",
+        korean: "Apple 기본 모드, GPT Realtime, GPT 전사, Gemini Live, Meta 스크라이브 중 하나만 활성화합니다.",
+        japanese: "Appleローカルモード、GPT Realtime、GPT文字起こし、Gemini Live、Meta Scribeから1つだけ有効にします。",
+        chineseSimplified: "仅启用一种处理方式：Apple 本地模式、GPT Realtime、GPT 转写、Gemini Live 或 Meta Scribe。"
     )
     static let enterOpenAIAPIKey = AppText.localized(
         english: "Enter OpenAI API key",
@@ -1274,6 +1462,12 @@ private enum SettingsCopy {
         japanese: "Gemini APIキーを入力",
         chineseSimplified: "输入 Gemini API key"
     )
+    static let enterMetaAPIKey = AppText.localized(
+        english: "Enter Meta Model API key",
+        korean: "Meta Model API 키 입력",
+        japanese: "Meta Model APIキーを入力",
+        chineseSimplified: "输入 Meta Model API key"
+    )
     static let sessionWorkflow = AppText.localized(english: "Session Workflow", korean: "세션 처리 방식")
     static let sessionWorkflowDetail = AppText.localized(
         english: "Apple mode can switch between translation and source-only transcription.",
@@ -1286,8 +1480,10 @@ private enum SettingsCopy {
         chineseSimplified: "API 实时翻译模式会生成翻译字幕。若只需原文字幕，请选择 Apple 转写、GPT 转写或 Gemini 转写。"
     )
     static let languagePairDetail = AppText.localized(
-        english: "Language pair is changed from the quick settings sidebar.",
-        korean: "언어 조합은 빠른 설정 사이드바에서 변경합니다."
+        english: "Change the language pair from the console bar at the bottom of the main window.",
+        korean: "언어 조합은 메인 창 하단 콘솔 바에서 변경합니다.",
+        japanese: "言語の組み合わせはメインウインドウ下部のコンソールバーで変更します。",
+        chineseSimplified: "语言组合可在主窗口底部的控制栏中更改。"
     )
     static let autoDetectDetail = AppText.localized(
         english: "Temporarily unavailable while automatic detection is improved.",
@@ -1298,6 +1494,24 @@ private enum SettingsCopy {
         korean: "Gemini가 지원하는 음성 언어와 세션 중 언어 전환을 자동으로 감지합니다.",
         japanese: "Geminiが対応する音声言語とセッション中の言語切り替えを自動検出します。",
         chineseSimplified: "Gemini 会自动检测支持的口语及会话中的语言切换。"
+    )
+    static let metaAutoDetectDetail = AppText.localized(
+        english: "Muse Voice Transcribe detects 25 languages automatically, including code-switching within a sentence.",
+        korean: "Muse Voice Transcribe가 문장 안의 코드 스위칭을 포함해 25개 언어를 자동 감지합니다.",
+        japanese: "Muse Voice Transcribeは文中のコードスイッチングを含む25言語を自動検出します。",
+        chineseSimplified: "Muse Voice Transcribe 可自动检测 25 种语言，包括句内语码转换。"
+    )
+    static let speakerLabels = AppText.localized(
+        english: "Speaker labels",
+        korean: "화자 라벨",
+        japanese: "話者ラベル",
+        chineseSimplified: "说话人标签"
+    )
+    static let speakerLabelsDetail = AppText.localized(
+        english: "Labels turns as Speaker A, B… Turn off for lower-latency single-speaker transcription.",
+        korean: "발화 차례를 화자 A, B…로 표시합니다. 단일 화자의 지연을 낮추려면 끄세요.",
+        japanese: "発話を話者A、B…と表示します。単一話者で低遅延にする場合はオフにしてください。",
+        chineseSimplified: "将轮次标记为说话人 A、B…。单人转写需要更低延迟时可关闭。"
     )
     static let enabled = AppText.localized(
         english: "On",
@@ -1630,32 +1844,59 @@ private struct SettingsSidebar: View {
     @Binding var selection: SettingsCategory
 
     var body: some View {
-        List(selection: $selection) {
+        List {
             ForEach(SettingsCategory.allCases) { category in
-                HStack(spacing: 9) {
-                    Image(systemName: category.systemImage)
-                        .font(.system(size: AirTranslateDesign.iconRegular, weight: .medium))
-                        .foregroundStyle(selection == category ? Color.primary : Color.secondary)
-                        .frame(width: 20, height: 20)
-
-                    Text(category.title)
-                        .font(.callout.weight(.semibold))
-                        .foregroundStyle(selection == category ? Color.primary : Color.secondary)
-                        .lineLimit(1)
-
-                    Spacer(minLength: 0)
+                SettingsSidebarRow(
+                    category: category,
+                    isSelected: selection == category
+                ) {
+                    selection = category
                 }
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .tag(category)
+                .listRowInsets(EdgeInsets(top: 2, leading: 8, bottom: 2, trailing: 8))
                 .listRowSeparator(.hidden)
-                .accessibilityLabel(category.title)
-                .accessibilityHint(SettingsCopy.sidebarHint)
+                .listRowBackground(Color.clear)
             }
         }
         .listStyle(.sidebar)
-        .padding(.horizontal, 8)
-        .contentMargins(.top, 6, for: .scrollContent)
+        .scrollContentBackground(.hidden)
+        .contentMargins(.top, AirTranslateDesign.Spacing.xs, for: .scrollContent)
+        .background(AirTranslateDesign.Palette.canvas)
+    }
+}
+
+private struct SettingsSidebarRow: View {
+    let category: SettingsCategory
+    let isSelected: Bool
+    let action: () -> Void
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: AirTranslateDesign.Spacing.sm) {
+                Image(systemName: category.systemImage)
+                    .font(.system(size: AirTranslateDesign.iconRegular, weight: .semibold))
+                    .foregroundStyle(isSelected ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
+                    .frame(width: 20, height: 20)
+
+                Text(category.title)
+                    .font(AirTranslateDesign.Typography.label)
+                    .foregroundStyle(isSelected ? AirTranslateDesign.Palette.accent : AirTranslateDesign.Palette.textSecondary)
+                    .lineLimit(1)
+
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, AirTranslateDesign.Spacing.sm)
+            .frame(maxWidth: .infinity, minHeight: 40, alignment: .leading)
+            .background(
+                isSelected ? AirTranslateDesign.Palette.accentSoft : AirTranslateDesign.Palette.transparent,
+                in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .airFocusRing(focus: $isFocused)
+        .accessibilityLabel(category.title)
+        .accessibilityHint(SettingsCopy.sidebarHint)
     }
 }
 
@@ -1663,19 +1904,24 @@ private struct SettingsPageHeader: View {
     let category: SettingsCategory
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .center, spacing: AirTranslateDesign.Spacing.md) {
             Image(systemName: category.systemImage)
                 .font(.system(size: AirTranslateDesign.iconLarge, weight: .semibold))
-                .foregroundStyle(Color.accentColor)
-                .frame(width: 24, height: 24)
+                .foregroundStyle(AirTranslateDesign.Palette.accent)
+                .frame(width: 40, height: 40)
+                .background(
+                    AirTranslateDesign.Palette.accentSoft,
+                    in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
+                )
 
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
                 Text(category.title)
-                    .font(.title2.weight(.semibold))
+                    .font(AirTranslateDesign.Typography.settingsTitle)
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
                 Text(category.detail)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
+                    .font(AirTranslateDesign.Typography.label)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
@@ -1711,17 +1957,22 @@ private struct FloatingCaptionPreview: View {
 
             ZStack {
                 RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-
-                RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(.ultraThinMaterial)
-                    .opacity(0.45)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                AirTranslateDesign.Palette.floatingScrimTop,
+                                AirTranslateDesign.Palette.floatingScrimBottom
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
 
                 VStack(spacing: 8) {
                     if displayMode == .original || displayMode == .originalAndTranslation {
                         Text(originalText)
                             .font(displayMode == .original ? previewPrimaryFont : previewSecondaryFont)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(AirTranslateDesign.Palette.floatingTextPrimary)
                             .lineLimit(lineCount.rawValue)
                             .accessibilityLabel("\(AppText.original): \(originalText)")
                     }
@@ -1729,7 +1980,7 @@ private struct FloatingCaptionPreview: View {
                     if displayMode == .translation || displayMode == .originalAndTranslation {
                         Text(translationText)
                             .font(previewPrimaryFont)
-                            .foregroundStyle(Color.accentColor)
+                            .foregroundStyle(AirTranslateDesign.Palette.accentBright)
                             .lineLimit(lineCount.rawValue)
                             .accessibilityLabel("\(AppText.translation): \(translationText)")
                     }
@@ -1737,11 +1988,15 @@ private struct FloatingCaptionPreview: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 16)
-                .background(.black.opacity(0.76), in: RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous))
+                .background(AirTranslateDesign.Palette.floatingScrimBottom, in: RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous))
                 .accessibilityElement(children: .contain)
             }
             .frame(minHeight: previewHeight)
-            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.surface, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.surface, style: .continuous)
+                    .strokeBorder(AirTranslateDesign.Palette.floatingOutline)
+            }
         }
     }
 
@@ -1815,11 +2070,11 @@ private enum SettingsPermissionState: Equatable {
     var color: Color {
         switch self {
         case .allowed:
-            .green
+            AirTranslateDesign.Palette.live
         case .notDetermined, .unknown:
-            .orange
+            AirTranslateDesign.Palette.warning
         case .notGranted, .denied, .restricted:
-            .red
+            AirTranslateDesign.Palette.danger
         }
     }
 
@@ -1871,18 +2126,22 @@ private struct SettingsNoticeRow: View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: systemImage)
                 .font(.body.weight(.medium))
-                .foregroundStyle(Color.orange)
+                .foregroundStyle(AirTranslateDesign.Palette.warning)
                 .frame(width: 28, height: 28)
 
             Text(text)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.orange)
+                .font(AirTranslateDesign.Typography.meta.weight(.semibold))
+                .foregroundStyle(AirTranslateDesign.Palette.warning)
                 .fixedSize(horizontal: false, vertical: true)
 
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 9)
-        .settingsRowSeparator()
+        .padding(AirTranslateDesign.Spacing.sm)
+        .background(
+            AirTranslateDesign.Palette.pausedSoft,
+            in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
+        )
+        .padding(.vertical, AirTranslateDesign.Spacing.xxs)
         .accessibilityElement(children: .combine)
     }
 }
@@ -1909,20 +2168,24 @@ private struct SettingsNoticeActionRow: View {
                 actionButton
             }
         }
-        .padding(.vertical, 9)
-        .settingsRowSeparator()
+        .padding(AirTranslateDesign.Spacing.sm)
+        .background(
+            AirTranslateDesign.Palette.pausedSoft,
+            in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control, style: .continuous)
+        )
+        .padding(.vertical, AirTranslateDesign.Spacing.xxs)
     }
 
     private var noticeLabel: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: systemImage)
                 .font(.body.weight(.medium))
-                .foregroundStyle(Color.orange)
+                .foregroundStyle(AirTranslateDesign.Palette.warning)
                 .frame(width: 28, height: 28)
 
             Text(text)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.orange)
+                .font(AirTranslateDesign.Typography.meta.weight(.semibold))
+                .foregroundStyle(AirTranslateDesign.Palette.warning)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -1942,16 +2205,19 @@ private struct SettingsGroup<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
             Text(title)
-                .font(.headline)
+                .font(AirTranslateDesign.Typography.sectionLabel)
+                .tracking(0.6)
+                .textCase(.uppercase)
+                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
 
             VStack(spacing: 0) {
                 content
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4)
-            .airTranslateSurface()
+            .padding(.horizontal, AirTranslateDesign.Spacing.md)
+            .padding(.vertical, AirTranslateDesign.Spacing.xxs)
+            .airRaisedSurface()
         }
     }
 }
@@ -1971,6 +2237,7 @@ private struct SettingsControlRow<Trailing: View>: View {
 
                 trailing
                     .controlSize(.regular)
+                    .frame(maxWidth: 360, alignment: .trailing)
             }
             .frame(minWidth: AirTranslateDesign.settingsRowBreakpoint)
 
@@ -1983,7 +2250,8 @@ private struct SettingsControlRow<Trailing: View>: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(.vertical, 9)
+        .frame(minHeight: 64)
+        .padding(.vertical, AirTranslateDesign.Spacing.xs)
         .settingsRowSeparator()
     }
 }
@@ -1999,6 +2267,7 @@ private struct SettingsToggleRow: View {
             Toggle(title, isOn: $isOn)
                 .labelsHidden()
                 .toggleStyle(.switch)
+                .tint(AirTranslateDesign.Palette.accent)
         }
     }
 }
@@ -2012,6 +2281,7 @@ private struct SettingsVolumeSlider: View {
         HStack(spacing: 10) {
             Slider(value: $value, in: range, step: 0.05)
                 .frame(width: 150)
+                .tint(AirTranslateDesign.Palette.accent)
                 .accessibilityLabel(accessibilityLabel)
                 .accessibilityValue("\(Int((value * 100).rounded()))%")
 
@@ -2050,17 +2320,17 @@ private struct SettingsRowLabel: View {
         HStack(alignment: .top, spacing: 9) {
             Image(systemName: systemImage)
                 .font(.system(size: AirTranslateDesign.iconRegular, weight: .medium))
-                .foregroundStyle(.secondary)
+                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                 .frame(width: 20, height: 20)
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.callout.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .font(AirTranslateDesign.Typography.label.weight(.semibold))
+                    .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
                 Text(detail)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .font(AirTranslateDesign.Typography.meta)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -2132,13 +2402,13 @@ private struct SettingsAssetAvailabilityRow: View {
     private var color: Color {
         switch availability.state {
         case .checking:
-            .secondary
+            AirTranslateDesign.Palette.textSecondary
         case .installed:
-            .green
+            AirTranslateDesign.Palette.live
         case .downloadRequired, .downloading:
-            .orange
+            AirTranslateDesign.Palette.warning
         case .unsupported, .unavailable, .failed:
-            .red
+            AirTranslateDesign.Palette.danger
         }
     }
 }
@@ -2147,7 +2417,7 @@ private extension View {
     func settingsRowSeparator() -> some View {
         overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color.primary.opacity(0.08))
+                .fill(AirTranslateDesign.Palette.hairline)
                 .frame(height: 1)
                 .padding(.leading, 42)
         }

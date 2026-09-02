@@ -8,95 +8,69 @@ struct ContentView: View {
     @State private var isFloatingCaptionVisible = FloatingCaptionWindowController.isOpen
 
     var body: some View {
-        ZStack(alignment: .top) {
-            VStack(spacing: 0) {
-                if let failureMessage = session.captureStartFailureMessage {
-                    CaptureStartFailureView(
-                        message: failureMessage,
-                        recoveryAction: session.captureStartRecoveryAction,
-                        recover: recoverFromCaptureStartFailure,
-                        dismiss: session.dismissCaptureStartFailure
-                    )
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .transition(.move(edge: .top).combined(with: .opacity))
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                AirTranslateDesign.Palette.canvas
+                    .ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    StageHeaderView(session: session)
+                    CaptionBoardView(session: session)
                 }
 
-                ZStack(alignment: .top) {
-                    NavigationSplitView {
-                        SidebarView(session: session)
-                            .navigationSplitViewColumnWidth(
-                                min: AirTranslateDesign.sidebarMinimum,
-                                ideal: AirTranslateDesign.sidebarIdeal,
-                                max: AirTranslateDesign.sidebarMaximum
-                            )
-                    } detail: {
-                        CaptionBoardView(session: session)
+                VStack(spacing: AirTranslateDesign.Spacing.xs) {
+                    if let failureMessage = session.captureStartFailureMessage {
+                        CaptureStartFailureView(
+                            message: failureMessage,
+                            recoveryAction: session.captureStartRecoveryAction,
+                            recover: recoverFromCaptureStartFailure,
+                            dismiss: session.dismissCaptureStartFailure
+                        )
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
                     if let toastMessage = session.toastMessage {
                         ToastMessageView(message: toastMessage)
-                            .padding(.top, 18)
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
                 }
+                .padding(.top, AirTranslateDesign.Spacing.sm)
+                .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+            }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                ConsoleBarView(session: session, isCompact: geometry.size.width < 1040)
+                    .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+                    .padding(.top, AirTranslateDesign.Spacing.sm)
+                    .padding(.bottom, AirTranslateDesign.Spacing.md)
             }
         }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button {
-                    requestCaptureToggle()
+                    isLibraryPresented = true
                 } label: {
-                    Label(captureButtonTitle, systemImage: captureButtonSystemImage)
+                    Image(systemName: "tray.full")
                 }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.roundedRectangle)
-                .tint(session.isRunning || session.isStarting ? .red : .accentColor)
-                .help(captureButtonTitle)
-                .accessibilityLabel(captureButtonTitle)
-                .accessibilityValue(captureStateDescription)
+                .help(AppText.manageSavedTranscripts)
+                .accessibilityLabel(AppText.library)
 
-                Button {
-                    togglePause()
-                } label: {
-                    Label(
-                        session.isPaused ? AppText.resume : AppText.pause,
-                        systemImage: session.isPaused ? "play.fill" : "pause.fill"
-                    )
-                }
-                .buttonBorderShape(.roundedRectangle)
-                .disabled(!session.isRunning)
-                .help(session.isPaused ? AppText.resume : AppText.pause)
-                .accessibilityLabel(session.isPaused ? AppText.resume : AppText.pause)
-            }
-
-            ToolbarSpacer(.fixed)
-
-            ToolbarItemGroup(placement: .primaryAction) {
                 Button {
                     toggleFloatingCaptions()
                 } label: {
                     Image(systemName: isFloatingCaptionVisible ? "captions.bubble.fill" : "captions.bubble")
                 }
-                .buttonBorderShape(.roundedRectangle)
                 .help(AppText.floatingCaptions)
                 .accessibilityLabel(AppText.floatingCaptions)
-                .accessibilityValue(isFloatingCaptionVisible ? AppText.floatingCaptionPowerOn : AppText.floatingCaptionPowerOff)
+                .accessibilityValue(
+                    isFloatingCaptionVisible
+                        ? AppText.floatingCaptionPowerOn
+                        : AppText.floatingCaptionPowerOff
+                )
                 .accessibilityAddTraits(isFloatingCaptionVisible ? .isSelected : [])
-
-                Button {
-                    isLibraryPresented = true
-                } label: {
-                    Image(systemName: "tray.full")
-                }
-                .buttonBorderShape(.roundedRectangle)
-                .help(AppText.manageSavedTranscripts)
-                .accessibilityLabel(AppText.library)
 
                 SettingsLink {
                     Image(systemName: "gearshape")
                 }
-                .buttonBorderShape(.roundedRectangle)
                 .help(AppText.configureTranslationSettings)
                 .accessibilityLabel(AppText.translationSettings)
             }
@@ -111,8 +85,8 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: FloatingCaptionWindowController.visibilityDidChangeNotification)) { _ in
             syncFloatingCaptionVisibility()
         }
-        .animation(reduceMotion ? nil : .spring(response: 0.26, dampingFraction: 0.84), value: session.toastSequence)
-        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: session.toastMessage)
+        .animation(reduceMotion ? nil : AirTranslateDesign.Motion.state, value: session.toastSequence)
+        .animation(reduceMotion ? nil : AirTranslateDesign.Motion.enter, value: session.toastMessage)
         .confirmationDialog(
             AppText.autoDetectionLanguageChangeTitle,
             isPresented: autoDetectionLanguageChangeBinding,
@@ -138,32 +112,6 @@ struct ContentView: View {
         }
     }
 
-    private var captureButtonTitle: String {
-        session.isRunning || session.isStarting ? AppText.stop : AppText.start
-    }
-
-    private var captureStateDescription: String {
-        if session.isStarting {
-            return session.statusMessage
-        }
-        if session.isRunning {
-            return session.isPaused ? AppText.paused : AppText.listening
-        }
-        return session.statusMessage
-    }
-
-    private var captureButtonSystemImage: String {
-        session.isRunning || session.isStarting ? "stop.fill" : "play.fill"
-    }
-
-    private func requestCaptureToggle() {
-        if session.isRunning || session.isStarting {
-            session.stop()
-        } else {
-            session.start()
-        }
-    }
-
     private func recoverFromCaptureStartFailure(_ action: CaptureStartRecoveryAction) {
         switch action {
         case .apiKeys:
@@ -174,10 +122,6 @@ struct ContentView: View {
         case .retry:
             session.start()
         }
-    }
-
-    private func togglePause() {
-        session.isPaused ? session.resume() : session.pause()
     }
 
     private func toggleFloatingCaptions() {
@@ -191,9 +135,7 @@ struct ContentView: View {
 
     private var autoDetectionLanguageChangeBinding: Binding<Bool> {
         Binding(
-            get: {
-                session.pendingAutoDetectionLanguageChange != nil
-            },
+            get: { session.pendingAutoDetectionLanguageChange != nil },
             set: { isPresented in
                 if !isPresented {
                     session.keepCurrentAutoDetectionLanguage()
@@ -210,13 +152,14 @@ private struct CaptureStartFailureView: View {
     let dismiss: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: AirTranslateDesign.Spacing.sm) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .foregroundStyle(Color.orange)
+                .foregroundStyle(AirTranslateDesign.Palette.warning)
                 .accessibilityHidden(true)
 
             Text(message)
-                .font(.callout.weight(.semibold))
+                .font(AirTranslateDesign.Typography.label.weight(.semibold))
+                .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
                 .fixedSize(horizontal: false, vertical: true)
                 .layoutPriority(1)
 
@@ -225,6 +168,7 @@ private struct CaptureStartFailureView: View {
                     recover(recoveryAction)
                 }
                 .buttonStyle(.borderedProminent)
+                .tint(AirTranslateDesign.Palette.accent)
                 .controlSize(.small)
             }
 
@@ -234,15 +178,19 @@ private struct CaptureStartFailureView: View {
             .buttonStyle(.plain)
             .accessibilityLabel(AppText.dismissStartFailure)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
+        .padding(.horizontal, AirTranslateDesign.Spacing.md)
+        .padding(.vertical, AirTranslateDesign.Spacing.sm)
         .frame(maxWidth: 680)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous))
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.surface, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous)
-                .strokeBorder(Color.orange.opacity(0.55))
+            RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.surface, style: .continuous)
+                .strokeBorder(AirTranslateDesign.Palette.warning)
         }
-        .shadow(color: .black.opacity(0.14), radius: 12, y: 5)
+        .shadow(
+            color: AirTranslateDesign.Palette.shadow.opacity(AirTranslateDesign.Elevation.floatingOpacity),
+            radius: AirTranslateDesign.Elevation.floatingRadius,
+            y: AirTranslateDesign.Elevation.floatingY
+        )
         .accessibilityElement(children: .contain)
         .onAppear {
             AccessibilityNotification.Announcement(message).post()
@@ -254,12 +202,9 @@ private struct CaptureStartFailureView: View {
 
     private func actionTitle(for action: CaptureStartRecoveryAction) -> String {
         switch action {
-        case .apiKeys:
-            AppText.openAPIKeySettings
-        case .privacy:
-            AppText.openPrivacySettings
-        case .retry:
-            AppText.retry
+        case .apiKeys: AppText.openAPIKeySettings
+        case .privacy: AppText.openPrivacySettings
+        case .retry: AppText.retry
         }
     }
 }
@@ -269,16 +214,11 @@ private struct ToastMessageView: View {
 
     var body: some View {
         Label(message, systemImage: "checkmark.circle.fill")
-            .font(.callout.weight(.semibold))
-            .foregroundStyle(.primary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous)
-                    .strokeBorder(AirTranslateDesign.separator.opacity(0.55))
-            }
-            .shadow(color: Color.black.opacity(0.14), radius: 10, y: 6)
+            .font(AirTranslateDesign.Typography.label.weight(.semibold))
+            .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
+            .padding(.horizontal, AirTranslateDesign.Spacing.sm)
+            .padding(.vertical, AirTranslateDesign.Spacing.xs)
+            .airConsoleSurface()
             .accessibilityAddTraits(.updatesFrequently)
     }
 }

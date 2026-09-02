@@ -5,20 +5,29 @@ struct FloatingCaptionWindowView: View {
 
     var body: some View {
         ZStack {
-            Color.clear
+            AirTranslateDesign.Palette.transparent
 
-            VStack(spacing: 8) {
+            VStack(spacing: AirTranslateDesign.Spacing.xs) {
                 content
             }
-            .padding(.horizontal, 22)
-            .padding(.vertical, 14)
+            .padding(.horizontal, AirTranslateDesign.Spacing.lg)
+            .padding(.vertical, AirTranslateDesign.Spacing.md)
             .background {
                 if hasVisibleCaptionText {
-                    RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous)
-                        .fill(.black.opacity(0.76))
+                    RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.surface, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    AirTranslateDesign.Palette.floatingScrimTop,
+                                    AirTranslateDesign.Palette.floatingScrimBottom
+                                ],
+                                startPoint: .top,
+                                endPoint: .bottom
+                            )
+                        )
                         .overlay {
-                            RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous)
-                                .strokeBorder(.white.opacity(0.12))
+                            RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.surface, style: .continuous)
+                                .strokeBorder(AirTranslateDesign.Palette.floatingOutline)
                         }
                 }
             }
@@ -51,7 +60,7 @@ struct FloatingCaptionWindowView: View {
         case .originalAndTranslation:
             if !sourceText.isEmpty {
                 subtitleText(sourceText, font: session.floatingCaptionTextSize.secondaryFont)
-                    .opacity(0.82)
+                    .foregroundStyle(AirTranslateDesign.Palette.floatingTextSecondary)
                 if !translationText.isEmpty {
                     subtitleText(translationText, font: session.floatingCaptionTextSize.primaryFont)
                 } else if !noticeText.isEmpty {
@@ -124,7 +133,7 @@ struct FloatingCaptionWindowView: View {
         StreamingTranscriptText(
             text: text.isEmpty ? AppText.noFloatingCaptionsYet : text,
             font: font,
-            foregroundColor: .white,
+            foregroundColor: AirTranslateDesign.Palette.floatingTextPrimary,
             isTextSelectionEnabled: false,
             lineLimit: lineLimit,
             textAlignment: .center,
@@ -134,12 +143,11 @@ struct FloatingCaptionWindowView: View {
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity, alignment: .center)
         .lineSpacing(5)
-        .shadow(color: .black.opacity(0.95), radius: 3, x: 0, y: 1)
-        .shadow(color: .black.opacity(0.65), radius: 8, x: 0, y: 2)
+        .shadow(color: AirTranslateDesign.Palette.floatingShadow, radius: 8, x: 0, y: 2)
     }
 
     private func noticeSubtitleText(_ text: String) -> some View {
         subtitleText(text, font: session.floatingCaptionTextSize.secondaryFont)
-            .opacity(0.78)
+            .foregroundStyle(AirTranslateDesign.Palette.floatingTextSecondary)
     }
 }

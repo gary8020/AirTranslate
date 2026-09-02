@@ -13,6 +13,7 @@ struct CaptionLine: Identifiable, Equatable {
     let createdAt: Date
     let isFinal: Bool
     let revision: Int
+    let speakerLabel: String?
 
     init(
         id: UUID = UUID(),
@@ -22,6 +23,7 @@ struct CaptionLine: Identifiable, Equatable {
         createdAt: Date,
         isFinal: Bool,
         revision: Int = 0,
+        speakerLabel: String? = nil,
         usesLongSessionDisplay: Bool = false
     ) {
         self.id = id
@@ -33,6 +35,7 @@ struct CaptionLine: Identifiable, Equatable {
         self.createdAt = createdAt
         self.isFinal = isFinal
         self.revision = revision
+        self.speakerLabel = speakerLabel
     }
 
     private static func displayText(for text: String, usesLongSessionDisplay: Bool) -> String {

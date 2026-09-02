@@ -6,7 +6,7 @@ struct StreamingTranscriptText: View {
 
     let text: String
     let font: Font
-    var foregroundColor = Color.primary
+    var foregroundColor = AirTranslateDesign.Palette.textPrimary
     var isTextSelectionEnabled = true
     var lineLimit: Int?
     var textAlignment: TextAlignment = .leading
@@ -111,7 +111,7 @@ struct StreamingTranscriptText: View {
                 appearingText = chunk
                 appearingOpacity = 0.12
 
-                withAnimation(.easeOut(duration: fadeDuration)) {
+                withAnimation(.easeOut(duration: min(fadeDuration, 0.14))) {
                     appearingOpacity = 1
                 }
 

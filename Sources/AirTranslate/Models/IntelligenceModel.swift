@@ -211,3 +211,34 @@ enum GeminiTranslationModel: String, CaseIterable, Identifiable, Sendable {
         }
     }
 }
+
+enum MetaTranscriptionModel: String, CaseIterable, Identifiable, Sendable {
+    case off
+    case museVoiceTranscribe = "muse-voice-transcribe-1.0"
+
+    static let selectableCases: [MetaTranscriptionModel] = [.museVoiceTranscribe]
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .off:
+            AppText.localized(
+                english: "Use Apple Speech",
+                korean: "Apple Speech 사용",
+                japanese: "Apple Speechを使用",
+                chineseSimplified: "使用 Apple Speech"
+            )
+        case .museVoiceTranscribe:
+            "Muse Voice Transcribe 1.0"
+        }
+    }
+
+    var isEnabled: Bool {
+        self != .off
+    }
+
+    var apiModelID: String {
+        isEnabled ? rawValue : ""
+    }
+}

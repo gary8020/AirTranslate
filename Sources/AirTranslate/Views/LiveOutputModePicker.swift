@@ -5,27 +5,38 @@ struct LiveOutputModePicker: View {
     let isDisabled: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xxs) {
             Text(AppText.outputMode)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.secondary)
+                .font(AirTranslateDesign.Typography.sectionLabel)
+                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
 
-            Picker(AppText.outputMode, selection: selectionBinding) {
-                ForEach(LiveOutputMode.allCases) { mode in
-                    Text(mode.title).tag(mode)
+            if isDisabled {
+                Label(selection.title, systemImage: "lock.fill")
+                    .font(AirTranslateDesign.Typography.label)
+                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 32)
+                    .background(AirTranslateDesign.Palette.raisedHover, in: RoundedRectangle(cornerRadius: AirTranslateDesign.Radius.control))
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(AppText.outputMode)
+                    .accessibilityValue(selection.title)
+                    .accessibilityHint(lockedAccessibilityHint)
+            } else {
+                Picker(AppText.outputMode, selection: selectionBinding) {
+                    ForEach(LiveOutputMode.allCases) { mode in
+                        Text(mode.title).tag(mode)
+                    }
                 }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(maxWidth: .infinity)
+                .allowsHitTesting(!isDisabled)
+                .accessibilityRespondsToUserInteraction(!isDisabled)
+                .accessibilityLabel(AppText.outputMode)
+                .accessibilityHint(AppText.outputMode)
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(maxWidth: .infinity)
-            .allowsHitTesting(!isDisabled)
-            .accessibilityRespondsToUserInteraction(!isDisabled)
-            .opacity(isDisabled ? 0.6 : 1)
-            .accessibilityLabel(AppText.outputMode)
-            .accessibilityHint(isDisabled ? lockedAccessibilityHint : AppText.outputMode)
         }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 4)
+        .padding(.horizontal, AirTranslateDesign.Spacing.xs)
+        .padding(.vertical, AirTranslateDesign.Spacing.xxs)
     }
 
     private var lockedAccessibilityHint: String {
