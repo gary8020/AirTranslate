@@ -47,6 +47,14 @@ AirTranslateは、Macで再生されている音声をリアルタイムで文�
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.7.1の主な変更点
+
+- **より安定したフローティング翻訳:** 新しい翻訳が用意できるまで前の翻訳を保持し、認識器が文を直すたびに字幕が書き換わったり点滅したりしません。
+- **予約された字幕の高さ:** フローティング字幕は固定ブロック高さを保ち、差し替えを一塊でフェードするため、文字が増えても原文行が上下に跳ねたり中央揃えし直したりしません。
+- **字幕の安定化と配置:** 設定とメニューバーで字幕の安定化（即応/標準/安定）と字幕の配置（中央/左）を選べます。左揃えは行が伸びても始点が固定されます。
+
+詳細は[AirTranslate 1.7.1リリースノート](https://github.com/himomohi/AirTranslate/releases/tag/v1.7.1)をご覧ください。
+
 ## 1.7.0の主な変更点
 
 - **Meta Scribe:** 任意のMuse Voice Transcribeが、話者ラベルと25言語のコードスイッチングによるリアルタイム文字起こしを既存の翻訳レイヤーの前に追加します。設定でMeta APIキーを入力し、Apple標準モードは引き続きローカル優先のデフォルトです。
@@ -198,14 +206,14 @@ ScreenCaptureKitのシステム音声キャプチャ経路を使うため、画�
 
 最初の要求後も現在のアプリで権限を利用できない場合は、**システム設定 > プライバシーとセキュリティ > 画面収録とシステムオーディオ録音**で現在のインストールを確認し、アプリを終了して再起動してください。通常の`tccutil`リセットは不要です。公開ad-hoc署名ビルドは更新間のTCC権限継承を保証しないため、新しいインストールを再確認する場合があります。
 
-権限が正しいのにGemini Liveの開始が止まったように見えていた場合は、**設定 > 情報**で1.7.0以降であることを確認してください。1.6.2以降では、開始中に非表示の設定セグメント操作がAppKitのフォーカス移動/AttributeGraphループへ入ることを防ぎます。
+権限が正しいのにGemini Liveの開始が止まったように見えていた場合は、**設定 > 情報**で1.7.1以降であることを確認してください。1.6.2以降では、開始中に非表示の設定セグメント操作がAppKitのフォーカス移動/AttributeGraphループへ入ることを防ぎます。
 
 ## ダウンロード
 
 最新のオープンソースビルドは[GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest)からダウンロードできます。DMGが最も簡単なインストール方法で、ZIPも軽量な配布形式として引き続き利用できます。
 
 - [AirTranslate.dmgをダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.7.0.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.7.0/AirTranslate-1.7.0.zip)
+- [AirTranslate-1.7.1.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.7.1/AirTranslate-1.7.1.zip)
 - [AirTranslate.dmg.sha256をダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [バージョン履歴を見る](Release/VERSION-HISTORY.md)
 

@@ -21,7 +21,7 @@ This folder contains reproducible release materials for the Apache 2.0 open-sour
 Override the defaults when needed:
 
 ```bash
-BUNDLE_ID="com.example.AirTranslate" VERSION="1.7.0" BUILD_NUMBER="170"
+BUNDLE_ID="com.example.AirTranslate" VERSION="1.7.1" BUILD_NUMBER="171"
 ```
 
 ## Local Release Build
@@ -58,6 +58,12 @@ Release/product/AirTranslate-<version>.dmg.sha256
 
 `Release/product/` is generated output and should stay out of commits.
 
+## 1.7.1 Floating Caption Stability Notes
+
+- Public docs must describe Caption Stability (Responsive / Balanced / Steady) and Caption Alignment (Center / Left) as Settings and menu-bar controls for the floating overlay.
+- Floating translations hold the previous translation until a replacement is ready; do not describe the overlay as clearing to a blank line on every rewrite.
+- Floating captions reserve a fixed caption height so the source line does not jump when the translation appears or wraps.
+
 ## 1.7.0 Stage, Meta Scribe, And Long-Session Notes
 
 - Public docs must describe Meta Scribe as optional Muse Voice Transcribe that sends audio only after the user enables it and provides a Meta API key.
@@ -91,5 +97,5 @@ git diff -- . ':(exclude).build/**' ':(exclude)Release/product/**' | \
 - Confirm Gemini Live mode still requires a user-provided key at runtime and does not bundle one.
 - Confirm Meta Scribe mode still requires a user-provided key at runtime and does not bundle one.
 - Confirm `Release/product/` remains ignored.
-- Confirm all four public READMEs and `GITHUB-RELEASE-1.7.0.md` describe all six public themes with equivalent meaning: Meta Scribe, Stage & Console, Air teal design system, focus ring, Apple Mode live-line rollover, and the 12-block Stage render window.
+- Confirm all four public READMEs and `GITHUB-RELEASE-1.7.1.md` describe all three public themes with equivalent meaning: steadier floating translations that hold the previous line, reserved caption height, and Caption Stability plus Caption Alignment controls.
 - Publish the new GitHub Release without deleting previous release versions or tags.

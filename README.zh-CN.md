@@ -47,6 +47,14 @@ AirTranslate 可以捕获 Mac 正在播放的音频，实时转写并翻译，�
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.7.1 主要更新
+
+- **更稳定的悬浮翻译:** 在新译文就绪之前会保留上一句翻译，识别器每次修订句子时字幕不再整句重写或闪烁。
+- **预留字幕高度:** 悬浮字幕保持固定块高度，并以整块淡入替换文本，因此原文行不会在文字变长时上下跳动或重新居中。
+- **字幕稳定与对齐:** 可在设置和菜单栏选择字幕稳定（灵敏/均衡/稳定）和字幕对齐（居中/左）。左对齐会在行变长时保持起点固定。
+
+完整内容请参阅 [AirTranslate 1.7.1 发布说明](https://github.com/himomohi/AirTranslate/releases/tag/v1.7.1)。
+
 ## 1.7.0 主要更新
 
 - **Meta Scribe:** 可选 Muse Voice Transcribe 在现有翻译层之前加入实时转写、说话人标签和 25 种语言的语码转换。请在设置中提供 Meta API key；Apple 默认模式仍是本地优先默认路径。
@@ -198,14 +206,14 @@ AirTranslate 只请求捕获和转写流程需要的权限。
 
 首次请求后，如果当前应用仍无法使用权限，请前往**系统设置 > 隐私与安全性 > 屏幕与系统音频录制**确认当前安装版本，然后退出并重新启动应用。通常无需重置 `tccutil`。公开 ad-hoc 签名构建不保证更新间的 TCC 权限继承，因此可能需要重新确认新安装的版本。
 
-如果权限正确但 Gemini Live“开始”此前仍像是卡住，请在**设置 > 关于**中确认版本为 1.7.0 或更高。自 1.6.2 起，隐藏设置中的分段控件不会在启动时进入 AppKit 焦点导航/AttributeGraph 循环。
+如果权限正确但 Gemini Live“开始”此前仍像是卡住，请在**设置 > 关于**中确认版本为 1.7.1 或更高。自 1.6.2 起，隐藏设置中的分段控件不会在启动时进入 AppKit 焦点导航/AttributeGraph 循环。
 
 ## 下载
 
 最新开源构建可在 [GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest) 下载。DMG 是最简单的安装路径，ZIP 也会继续作为轻量压缩包提供。
 
 - [下载 AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [下载 AirTranslate-1.7.0.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.7.0/AirTranslate-1.7.0.zip)
+- [下载 AirTranslate-1.7.1.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.7.1/AirTranslate-1.7.1.zip)
 - [下载 AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [查看版本历史](Release/VERSION-HISTORY.md)
 

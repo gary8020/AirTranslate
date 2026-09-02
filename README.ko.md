@@ -47,6 +47,14 @@ AirTranslate는 Mac에서 재생되는 소리를 실시간으로 기록하고 �
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## 1.7.1 주요 변경사항
+
+- **더 안정적인 플로팅 번역:** 새 번역이 준비될 때까지 이전 번역을 유지해, 인식기가 문장을 고칠 때마다 자막이 다시 쓰이거나 깜빡이지 않습니다.
+- **예약된 자막 높이:** 플로팅 자막이 고정 블록 높이를 유지하고 교체 문구를 한 덩어리로 페이드해, 글자가 늘어나도 원문 줄이 위아래로 점프하거나 다시 가운데 맞춰지지 않습니다.
+- **자막 안정화와 정렬:** 설정과 메뉴 막대에서 자막 안정화(빠름/기본/안정)와 자막 정렬(가운데/왼쪽)을 고를 수 있습니다. 왼쪽 정렬은 줄이 늘어나도 시작점이 고정됩니다.
+
+전체 내용은 [AirTranslate 1.7.1 릴리즈 노트](https://github.com/himomohi/AirTranslate/releases/tag/v1.7.1)에서 확인할 수 있습니다.
+
 ## 1.7.0 주요 변경사항
 
 - **Meta Scribe:** 선택형 Muse Voice Transcribe가 화자 라벨과 25개 언어 코드 스위칭 실시간 전사를 기존 번역 레이어 앞에 추가합니다. 설정에서 Meta API 키를 입력하며, Apple 기본 모드는 계속 로컬 우선 기본값입니다.
@@ -198,7 +206,7 @@ ScreenCaptureKit의 시스템 오디오 캡처 경로 때문에 화면 기록 �
 
 최초 요청 뒤에도 현재 앱에서 권한을 사용할 수 없다면 **시스템 설정 > 개인정보 보호 및 보안 > 화면 및 시스템 오디오 기록**에서 현재 설치본을 확인한 뒤 앱을 종료하고 다시 실행하세요. 일반적인 `tccutil` 초기화는 필요하지 않습니다. 공개 ad-hoc 서명 빌드는 업데이트 간 TCC 권한 승계를 보장하지 않으므로 새 설치본을 다시 확인해야 할 수 있습니다.
 
-권한이 올바른데도 Gemini Live 시작이 멈춘 것처럼 보였다면 **설정 > 정보**에서 1.7.0 이상인지 확인하세요. 1.6.2부터는 시작 중 숨겨진 설정 세그먼트 제어가 AppKit 포커스 탐색/AttributeGraph 루프에 들어가지 않습니다.
+권한이 올바른데도 Gemini Live 시작이 멈춘 것처럼 보였다면 **설정 > 정보**에서 1.7.1 이상인지 확인하세요. 1.6.2부터는 시작 중 숨겨진 설정 세그먼트 제어가 AppKit 포커스 탐색/AttributeGraph 루프에 들어가지 않습니다.
 
 ## 다운로드
 
@@ -207,7 +215,7 @@ ScreenCaptureKit의 시스템 오디오 캡처 경로 때문에 화면 기록 �
 AirTranslate는 Apache-2.0 라이선스의 오픈소스 프로젝트입니다. DMG 파일은 macOS 사용자가 더 쉽게 설치할 수 있도록 추가로 제공되는 설치 패키지이며, 소스코드 공개를 대체하는 것이 아닙니다. 소스코드, 빌드 스크립트, 릴리즈 자료, LICENSE, NOTICE 파일은 모두 이 저장소에 공개되어 있습니다.
 
 - [AirTranslate.dmg 다운로드](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.7.0.zip 다운로드](https://github.com/himomohi/AirTranslate/releases/download/v1.7.0/AirTranslate-1.7.0.zip)
+- [AirTranslate-1.7.1.zip 다운로드](https://github.com/himomohi/AirTranslate/releases/download/v1.7.1/AirTranslate-1.7.1.zip)
 - [AirTranslate.dmg.sha256 다운로드](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [버전 히스토리 보기](Release/VERSION-HISTORY.md)
 

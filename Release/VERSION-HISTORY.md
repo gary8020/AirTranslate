@@ -1,5 +1,19 @@
 # AirTranslate Version History
 
+## 1.7.1 - 2026-09-02
+
+### Added
+
+- Caption Stability (Responsive / Balanced / Steady) and Caption Alignment (Center / Left) in Settings and the menu bar.
+
+### Changed
+
+- Floating captions reserve a fixed caption height and fade replacements in one piece so the source line does not jump.
+
+### Fixed
+
+- Floating translations hold the previous translation until a replacement is ready, instead of rewriting or flickering on every recognizer revision.
+
 ## 1.7.0 - 2026-09-02
 
 ### Added

@@ -47,6 +47,14 @@ The default workflow uses Apple frameworks. GPT Realtime, Gemini Live Translate,
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
 
+## What's New in 1.7.1
+
+- **Steadier floating translations:** The overlay holds the previous translation until a new one is ready, so live captions no longer rewrite or flicker on every recognizer revision.
+- **Reserved caption height:** Floating captions keep a fixed block height and fade replacements in one piece, so the source line does not jump or re-center as text grows.
+- **Caption Stability and alignment:** Settings and the menu bar now offer Caption Stability (Responsive / Balanced / Steady) and Caption Alignment (Center / Left). Left-aligned captions stay anchored as the line grows.
+
+See the complete [AirTranslate 1.7.1 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.7.1).
+
 ## What's New in 1.7.0
 
 - **Meta Scribe:** Optional Muse Voice Transcribe adds realtime transcription, speaker labels, and 25-language code-switching before AirTranslate's existing translation layer. Provide a Meta API key from Settings; Apple Mode stays the local-first default.
@@ -198,7 +206,7 @@ Before troubleshooting, remove or archive older AirTranslate copies from Applica
 
 If the current app is still unavailable after the first request, open **System Settings > Privacy & Security > Screen & System Audio Recording**, confirm the current installation, then quit and relaunch. Routine `tccutil` resets are not needed. Public ad-hoc signed builds do not guarantee TCC permission inheritance between updates, so a newly installed build may need to be confirmed again.
 
-If Gemini Live Start previously appeared stuck despite correct permissions, verify that **Settings > About** shows 1.7.0 or later. Releases from 1.6.2 onward prevent the hidden Settings segmented control from entering the AppKit focus-navigation/AttributeGraph loop during startup.
+If Gemini Live Start previously appeared stuck despite correct permissions, verify that **Settings > About** shows 1.7.1 or later. Releases from 1.6.2 onward prevent the hidden Settings segmented control from entering the AppKit focus-navigation/AttributeGraph loop during startup.
 
 ## Download
 
@@ -207,7 +215,7 @@ Download the latest open-source build from [GitHub Releases](https://github.com/
 AirTranslate remains fully open-source under the Apache-2.0 License. The DMG is provided only as a convenient macOS installer, while all source code, build scripts, release materials, LICENSE, and NOTICE files remain available in this repository.
 
 - [Download AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [Download AirTranslate-1.7.0.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.7.0/AirTranslate-1.7.0.zip)
+- [Download AirTranslate-1.7.1.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.7.1/AirTranslate-1.7.1.zip)
 - [Download AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [View version history](Release/VERSION-HISTORY.md)
 
