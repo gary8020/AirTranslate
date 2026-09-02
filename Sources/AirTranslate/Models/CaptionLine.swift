@@ -39,7 +39,11 @@ struct CaptionLine: Identifiable, Equatable {
     }
 
     private static func displayText(for text: String, usesLongSessionDisplay: Bool) -> String {
-        guard usesLongSessionDisplay || text.count > Self.maxDisplayCharacters else { return text }
+        guard usesLongSessionDisplay
+            || text.utf8.count > Self.maxDisplayCharacters && text.count > Self.maxDisplayCharacters
+        else {
+            return text
+        }
 
         return TranscriptTextProcessor.displayTail(
             from: text,

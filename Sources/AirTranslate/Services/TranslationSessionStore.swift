@@ -397,6 +397,10 @@ final class TranslationSessionStore {
     private static let largeTranscriptPresentationCharacterLimit = 4_000
     private static let largeTranscriptPresentationInterval: TimeInterval = 0.35
     private static let largeTranscriptRecognitionDeliveryInterval: TimeInterval = 0.25
+    private static let appleCaptionRolloverCharacterLimit = 600
+    private static let appleCaptionRolloverSilenceCharacterLimit = 160
+    private static let appleCaptionRolloverMinimumUnits = 2
+    private static let appleRolloverReplayGuardUnitCount = 2
     private static let translationCacheHitYieldInterval = 32
     private static let largeTranscriptTranslationCharacterLimit = 4_000
     private static let veryLargeTranscriptTranslationCharacterLimit = 10_000
@@ -410,6 +414,11 @@ final class TranslationSessionStore {
     private static let appleAutoDetectionMinimumConfidence = 0.35
     private static let appleAutoDetectionLanguageSwitchMinimumConfidence = 0.72
     private static let isAppleSourceAutoDetectionTemporarilyDisabled = true
+
+    private enum CaptionRolloverContext {
+        case sentenceBoundary
+        case longSilence
+    }
 
     var isRunning = false
     var isStarting = false
@@ -657,6 +666,7 @@ final class TranslationSessionStore {
     private var committedSourceText = ""
     private var currentPartialText = ""
     private var currentPartialLanguage: LanguageOption?
+    private var appleRolloverReplayGuard: (lineID: UUID, units: [TranscriptUnit])?
     private var pendingParagraphBreakBeforePartial = false
     private var floatingCommittedSourceText = ""
     private var floatingCurrentPartialText = ""
@@ -749,6 +759,13 @@ final class TranslationSessionStore {
 
     var isUsingMetaScribe: Bool {
         metaTranscriptionModel.isEnabled
+    }
+
+    private var usesAppleCaptionRollover: Bool {
+        isRunning
+            && !isUsingOpenAIRealtime
+            && !isUsingGeminiTranscriptionMode
+            && !isUsingMetaScribe
     }
 
     var isUsingProviderTranscriptionMode: Bool {
@@ -2480,6 +2497,7 @@ final class TranslationSessionStore {
         committedSourceText = ""
         currentPartialText = ""
         currentPartialLanguage = nil
+        appleRolloverReplayGuard = nil
         appleAutoDetectionPreferredLanguage = nil
         pendingAutoDetectionLanguageChange = nil
         pendingParagraphBreakBeforePartial = false
@@ -2929,12 +2947,16 @@ final class TranslationSessionStore {
     }
 
     private func stageTranscriptForSave(_ sourceText: String, translatedText: String? = nil) {
-        let sourceText = sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sourceText = usesAppleCaptionRollover && lines.count > 1
+            ? appleSavedSourceTranscriptText
+            : sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !sourceText.isEmpty else { return }
 
         activeAutosaveSourceText = sourceText
         if let translatedText {
-            let translatedText = translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
+            let translatedText = usesAppleCaptionRollover && lines.count > 1
+                ? appleSavedTranslatedTranscriptText
+                : translatedText.trimmingCharacters(in: .whitespacesAndNewlines)
             if !translatedText.isEmpty, translatedText != AppText.translating {
                 activeAutosaveTranslatedText = translatedText
             }
@@ -2972,9 +2994,17 @@ final class TranslationSessionStore {
         clearsStagedText: Bool,
         reloadsLibrary: Bool
     ) -> Bool {
-        let currentSourceText = visibleTranscript().trimmingCharacters(in: .whitespacesAndNewlines)
+        let currentSourceText = usesAppleCaptionRollover && lines.count > 1
+            ? appleSavedSourceTranscriptText
+            : visibleTranscript().trimmingCharacters(in: .whitespacesAndNewlines)
         if !currentSourceText.isEmpty {
             activeAutosaveSourceText = currentSourceText
+        }
+        if usesAppleCaptionRollover && lines.count > 1 {
+            let translatedText = appleSavedTranslatedTranscriptText
+            if !translatedText.isEmpty {
+                activeAutosaveTranslatedText = translatedText
+            }
         }
 
         let sourceText = activeAutosaveSourceText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3005,6 +3035,20 @@ final class TranslationSessionStore {
             loadSavedTranscripts()
         }
         return true
+    }
+
+    private var appleSavedSourceTranscriptText: String {
+        lines
+            .map { $0.sourceText.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n\n")
+    }
+
+    private var appleSavedTranslatedTranscriptText: String {
+        lines
+            .map { $0.translatedText.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && $0 != AppText.translating }
+            .joined(separator: "\n\n")
     }
 
     private func savedTranscriptFiles(
@@ -3491,7 +3535,7 @@ final class TranslationSessionStore {
         guard !trimmedIncoming.isEmpty else { return visibleTranscript() }
 
         if hadLongSilence, !currentPartialText.isEmpty {
-            commitCurrentPartial()
+            commitCurrentPartial(rolloverContext: .longSilence)
             pendingParagraphBreakBeforePartial = !committedSourceText.isEmpty
             pendingFloatingParagraphBreakBeforePartial = !floatingCommittedSourceText.isEmpty
         }
@@ -3512,7 +3556,7 @@ final class TranslationSessionStore {
         }
 
         if currentPartialLanguage != language {
-            commitCurrentPartial()
+            commitCurrentPartial(rolloverContext: .sentenceBoundary)
             pendingParagraphBreakBeforePartial = hadLongSilence && !committedSourceText.isEmpty
             pendingFloatingParagraphBreakBeforePartial = hadLongSilence && !floatingCommittedSourceText.isEmpty
             currentPartialText = incomingPartial
@@ -3535,7 +3579,7 @@ final class TranslationSessionStore {
             return visibleTranscript()
         }
 
-        commitCurrentPartial()
+        commitCurrentPartial(rolloverContext: .sentenceBoundary)
         pendingParagraphBreakBeforePartial = hadLongSilence && !committedSourceText.isEmpty
         pendingFloatingParagraphBreakBeforePartial = hadLongSilence && !floatingCommittedSourceText.isEmpty
         currentPartialText = uncommittedIncomingText(
@@ -3562,7 +3606,10 @@ final class TranslationSessionStore {
         }
 
         if allowsCommittedReplay,
-           TranscriptTextProcessor.committedTranscriptAlreadyMatches(incoming, in: committedSourceText) {
+           TranscriptTextProcessor.committedTranscriptAlreadyMatches(
+               incoming,
+               in: replayComparisonCommittedText()
+           ) {
             return ""
         }
 
@@ -3585,13 +3632,13 @@ final class TranslationSessionStore {
     private func incomingTailAfterRecentCommittedReplay(_ incoming: String, language: LanguageOption) -> String? {
         guard let replay = TranscriptTextProcessor.incomingTailAfterRecentCommittedReplay(
             incoming,
-            committedText: committedSourceText,
+            committedText: replayComparisonCommittedText(),
             languageID: language.id
         ) else {
             return nil
         }
 
-        committedSourceText = replay.committedText
+        applyReplayComparisonCommittedText(replay.committedText, language: language)
         return replay.tailText
     }
 
@@ -3601,7 +3648,7 @@ final class TranslationSessionStore {
     ) -> String? {
         TranscriptTextProcessor.incomingTailAfterCommittedText(
             incoming,
-            committedText: committedSourceText,
+            committedText: replayComparisonCommittedText(),
             allowsCommittedReplay: allowsCommittedReplay
         )
     }
@@ -3628,7 +3675,7 @@ final class TranslationSessionStore {
         TranscriptTextProcessor.isWholeTextPrefix(prefix, of: text)
     }
 
-    private func commitCurrentPartial() {
+    private func commitCurrentPartial(rolloverContext: CaptionRolloverContext? = nil) {
         let language = currentPartialLanguage ?? sourceLanguage
         let partial = isUsingOpenAIRealtime
             ? currentPartialText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3660,6 +3707,74 @@ final class TranslationSessionStore {
         } else {
             discardFloatingCurrentPartial()
         }
+
+        dropAppleRolloverReplayGuardIfNeeded()
+        guard let rolloverContext, usesAppleCaptionRollover else { return }
+        let units = transcriptUnits(from: committedSourceText)
+        let characterLimit = rolloverContext == .longSilence
+            ? Self.appleCaptionRolloverSilenceCharacterLimit
+            : Self.appleCaptionRolloverCharacterLimit
+        guard units.count >= Self.appleCaptionRolloverMinimumUnits,
+              committedSourceText.utf16.count >= characterLimit
+        else {
+            return
+        }
+        rolloverAppleCaptionLine()
+    }
+
+    private func rolloverAppleCaptionLine() {
+        appleRolloverReplayGuard = nil
+        defer {
+            committedSourceText = ""
+            pendingParagraphBreakBeforePartial = false
+            currentLineID = nil
+            floatingCommittedSourceText = ""
+            pendingFloatingParagraphBreakBeforePartial = false
+        }
+
+        guard let currentLineID,
+              let index = lines.firstIndex(where: { $0.id == currentLineID })
+        else {
+            return
+        }
+
+        let existingLine = lines[index]
+        let language = sourceLanguageByLineID[currentLineID] ?? sourceLanguage
+        let finalizedSourceText = organizeTranscript(
+            committedSourceText,
+            language: language,
+            appliesLint: isTranscriptLintEnabled
+        )
+        let finalizedLine = CaptionLine(
+            id: existingLine.id,
+            sourceText: finalizedSourceText,
+            translatedText: existingLine.translatedText,
+            translatedSourceText: existingLine.translatedSourceText,
+            createdAt: existingLine.createdAt,
+            isFinal: true,
+            revision: existingLine.revision + 1,
+            speakerLabel: existingLine.speakerLabel,
+            usesLongSessionDisplay: usesLongSessionMode
+        )
+        lines[index] = finalizedLine
+        stageTranscriptForSave(finalizedSourceText)
+
+        if finalizedLine.translatedSourceText != finalizedLine.sourceText {
+            pendingTranslationSourceText = ""
+            requestTranslation(
+                for: finalizedLine,
+                source: language,
+                target: targetLanguage,
+                preservesOrdering: true
+            )
+        }
+
+        appleRolloverReplayGuard = (
+            lineID: finalizedLine.id,
+            units: normalizedReplayGuardUnits(
+                Array(transcriptUnits(from: finalizedSourceText).suffix(Self.appleRolloverReplayGuardUnitCount))
+            )
+        )
     }
 
     private func commitFloatingCurrentPartial() {
@@ -3855,15 +3970,97 @@ final class TranslationSessionStore {
     ) -> Bool {
         guard let updatedText = TranscriptTextProcessor.committedTextByReplacingRevision(
             with: text,
-            committedText: committedSourceText,
+            committedText: replayComparisonCommittedText(),
             languageID: language.id,
             allowsBackfill: allowsBackfill
         ) else {
             return false
         }
 
-        committedSourceText = updatedText
+        applyReplayComparisonCommittedText(updatedText, language: language)
         return true
+    }
+
+    private func replayComparisonCommittedText() -> String {
+        guard let appleRolloverReplayGuard else {
+            return committedSourceText
+        }
+
+        return transcriptText(
+            from: appleRolloverReplayGuard.units + transcriptUnits(from: committedSourceText)
+        )
+    }
+
+    private func applyReplayComparisonCommittedText(_ text: String, language: LanguageOption) {
+        guard let replayGuard = appleRolloverReplayGuard else {
+            committedSourceText = text
+            return
+        }
+
+        let units = transcriptUnits(from: text)
+        let guardUnitCount = min(replayGuard.units.count, units.count)
+        let updatedGuardUnits = normalizedReplayGuardUnits(Array(units.prefix(guardUnitCount)))
+        let remainingUnits = Array(units.dropFirst(guardUnitCount))
+        committedSourceText = transcriptText(from: remainingUnits)
+
+        if updatedGuardUnits != replayGuard.units,
+           let index = lines.firstIndex(where: { $0.id == replayGuard.lineID }) {
+            let line = lines[index]
+            var lineUnits = transcriptUnits(from: line.sourceText)
+            let replacedUnitCount = min(replayGuard.units.count, lineUnits.count)
+            let suffixStartIndex = lineUnits.count - replacedUnitCount
+            let originalSeparator = lineUnits[suffixStartIndex].separatorBefore
+            lineUnits.removeLast(replacedUnitCount)
+
+            var replacementUnits = updatedGuardUnits
+            if !replacementUnits.isEmpty {
+                replacementUnits[0].separatorBefore = lineUnits.isEmpty ? "" : originalSeparator
+            }
+            lineUnits.append(contentsOf: replacementUnits)
+            let updatedSourceText = transcriptText(from: lineUnits)
+
+            if updatedSourceText != line.sourceText {
+                let updatedLine = CaptionLine(
+                    id: line.id,
+                    sourceText: updatedSourceText,
+                    translatedText: line.translatedText,
+                    translatedSourceText: line.translatedSourceText,
+                    createdAt: line.createdAt,
+                    isFinal: true,
+                    revision: line.revision + 1,
+                    speakerLabel: line.speakerLabel,
+                    usesLongSessionDisplay: usesLongSessionMode
+                )
+                lines[index] = updatedLine
+                stageTranscriptForSave(updatedSourceText)
+                pendingTranslationSourceText = ""
+                requestTranslation(
+                    for: updatedLine,
+                    source: sourceLanguageByLineID[line.id] ?? language,
+                    target: targetLanguage,
+                    preservesOrdering: true
+                )
+            }
+        }
+
+        appleRolloverReplayGuard = (
+            lineID: replayGuard.lineID,
+            units: updatedGuardUnits
+        )
+        dropAppleRolloverReplayGuardIfNeeded()
+    }
+
+    private func normalizedReplayGuardUnits(_ units: [TranscriptUnit]) -> [TranscriptUnit] {
+        guard !units.isEmpty else { return units }
+
+        var normalizedUnits = units
+        normalizedUnits[0].separatorBefore = ""
+        return normalizedUnits
+    }
+
+    private func dropAppleRolloverReplayGuardIfNeeded() {
+        guard transcriptUnits(from: committedSourceText).count >= 4 else { return }
+        appleRolloverReplayGuard = nil
     }
 
     private func shouldAppendCommittedPartial(_ partial: String) -> Bool {
@@ -4669,7 +4866,12 @@ final class TranslationSessionStore {
         }
     }
 
-    private func requestTranslation(for line: CaptionLine, source: LanguageOption, target: LanguageOption) {
+    private func requestTranslation(
+        for line: CaptionLine,
+        source: LanguageOption,
+        target: LanguageOption,
+        preservesOrdering: Bool? = nil
+    ) {
         guard !openAITranslationModel.usesRealtimeAudioTranslation else { return }
         guard !isUsingGeminiTranslation else { return }
 
@@ -4688,7 +4890,7 @@ final class TranslationSessionStore {
         }
 
         let sourceText = line.sourceText
-        let preservesOrdering = isUsingMetaScribe
+        let preservesOrdering = preservesOrdering ?? isUsingMetaScribe
         if !preservesOrdering {
             guard pendingTranslationSourceText != sourceText else { return }
             pendingTranslationSourceText = sourceText

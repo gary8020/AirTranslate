@@ -13,6 +13,8 @@ struct CaptionBoardView: View {
 }
 
 private struct CaptionTranscriptFeed: View {
+    private static let stageVisibleLineLimit = 12
+
     @Bindable var session: TranslationSessionStore
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var longSessionAutoScrollTask: Task<Void, Never>?
@@ -54,31 +56,30 @@ private struct CaptionTranscriptFeed: View {
         GeometryReader { viewport in
             ScrollViewReader { proxy in
                 ScrollView {
-                    VStack(spacing: 0) {
-                        Spacer(minLength: 0)
-
-                        LazyVStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
-                            if session.shouldShowTranscript && session.lines.isEmpty {
-                                Text(AppText.waitingForTranscript)
-                                    .font(AirTranslateDesign.Typography.label)
-                                    .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
-                                    .frame(maxWidth: .infinity, minHeight: 96)
-                            }
-
-                            ForEach(session.lines) { line in
-                                CaptionLineView(
-                                    line: line,
-                                    showsTranslationPane: session.shouldShowTranslationPane,
-                                    isLive: session.isRunning
-                                        && line.id == session.lines.last?.id
-                                        && !line.isFinal
-                                )
-                                .equatable()
-                                .id(line.id)
-                                .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
-                            }
+                    VStack(alignment: .leading, spacing: AirTranslateDesign.Spacing.xs) {
+                        if session.shouldShowTranscript && session.lines.isEmpty {
+                            Text(AppText.waitingForTranscript)
+                                .font(AirTranslateDesign.Typography.label)
+                                .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
+                                .frame(maxWidth: .infinity, minHeight: 96)
                         }
 
+                        ForEach(session.lines.suffix(Self.stageVisibleLineLimit)) { line in
+                            CaptionLineView(
+                                line: line,
+                                showsTranslationPane: session.shouldShowTranslationPane,
+                                isLive: session.isRunning
+                                    && line.id == session.lines.last?.id
+                                    && !line.isFinal
+                            )
+                            .equatable()
+                            .id(line.id)
+                            .transition(.opacity)
+                        }
+                    }
+                    .padding(.vertical, AirTranslateDesign.Spacing.lg)
+                    .frame(minHeight: viewport.size.height, alignment: .bottom)
+                    .background {
                         GeometryReader { bottomProxy in
                             AirTranslateDesign.Palette.transparent
                                 .preference(
@@ -86,10 +87,7 @@ private struct CaptionTranscriptFeed: View {
                                     value: bottomProxy.frame(in: .named("captionFeed")).maxY
                                 )
                         }
-                        .frame(height: 0)
                     }
-                    .padding(.vertical, AirTranslateDesign.Spacing.lg)
-                    .frame(minHeight: viewport.size.height, alignment: .bottom)
                 }
                 .coordinateSpace(name: "captionFeed")
                 .defaultScrollAnchor(.bottom)
@@ -320,7 +318,7 @@ private struct TurnTranscriptText: View {
                 .accessibilityRespondsToUserInteraction(true)
             }
 
-            if text.count > 4_000 {
+            if text.utf8.count > 4_000 && text.count > 4_000 {
                 ScrollableTranscriptText(
                     text: displayText,
                     weight: .medium,

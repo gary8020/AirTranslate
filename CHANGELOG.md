@@ -14,6 +14,11 @@ All notable changes to AirTranslate are documented in this file.
 - Introduced a shared design system (adaptive "Air teal" accent, listening/paused/stopped state colors, layered surfaces, a typography scale for captions and UI, spacing/radius/elevation/motion tokens) applied consistently across the main window, Settings, transcript library, floating captions, and menu bar, in both light and dark appearance.
 - Keyboard focus now uses an accent-colored focus ring across custom controls, the Start button receives initial focus, and session-locked controls are shown dimmed with a single lock indicator while remaining fully described to assistive technologies.
 
+### Fixed
+
+- Apple default mode no longer slows down over long sessions. Previously the entire transcript accumulated into one caption line, so every recognition update re-normalized, re-segmented, and re-laid-out the whole session's text on the main thread. Apple mode now rolls the live line over into a new turn block after roughly 600 committed characters (or a shorter block after a long silence), with a replay guard so late final results that revise an already-rolled sentence are merged instead of duplicated. Saved transcripts and the library still contain the full session text across all blocks.
+- The Stage could go blank after a long session or a stop/start cycle. The transcript feed now renders the most recent turn blocks (12) with a plain stack instead of a lazy stack, which fixes the disappearing captions and keeps rendering cost constant regardless of session length.
+
 ## 1.6.2 - 2026-08-27
 
 ### Fixed
