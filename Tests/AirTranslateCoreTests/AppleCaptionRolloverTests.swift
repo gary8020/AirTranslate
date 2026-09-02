@@ -117,6 +117,7 @@ struct AppleCaptionRolloverTests {
         session.sourceLanguage = .english
         session.targetLanguage = .korean
         session.sessionDurationMode = .standard
+        session.isTranscriptPersistenceEnabled = true
         session.savedTranscriptContentMode = .original
         session.isAppleSourceAutoDetectionEnabled = false
         session.paragraphBreakSilenceInterval = 30

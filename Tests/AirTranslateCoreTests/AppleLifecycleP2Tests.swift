@@ -196,6 +196,7 @@ struct AppleLifecycleP2Tests {
             modelAvailabilityProvider: { _, _ in [:] },
             transcriptsDirectoryURL: directory
         )
+        session.isTranscriptPersistenceEnabled = true
         session.savedTranscriptContentMode = .original
         let capture = session.systemAudioCaptureForTesting
         let firstPipeline = session.activateLiveCallbackPipelineForTesting()

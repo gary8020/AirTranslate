@@ -585,6 +585,14 @@ struct SettingsView: View {
             }
 
             SettingsToggleRow(
+                title: AppText.transcriptPersistence,
+                detail: AppText.transcriptPersistenceDescription,
+                systemImage: "externaldrive",
+                isOn: lockedSessionConfigurationBinding($session.isTranscriptPersistenceEnabled)
+            )
+            .disabled(isSessionConfigurationLocked)
+
+            SettingsToggleRow(
                 title: AppText.transcriptLint,
                 detail: AppText.transcriptLintDescription,
                 systemImage: "wand.and.sparkles",
@@ -1456,8 +1464,8 @@ private enum SettingsCopy {
         korean: "표시할 결과와 번역 음성 출력을 조정합니다."
     )
     static let transcriptDetail = AppText.localized(
-        english: "Tune paragraphing, long sessions, and saved transcript behavior.",
-        korean: "문단 나누기, 긴 세션, 저장 기록 동작을 조정합니다."
+        english: "Tune paragraphing, long sessions, and optional transcript file saving.",
+        korean: "문단 나누기, 긴 세션, 선택적 기록 파일 저장을 조정합니다."
     )
     static let floatingDetail = AppText.localized(
         english: "Configure the detachable floating caption window.",

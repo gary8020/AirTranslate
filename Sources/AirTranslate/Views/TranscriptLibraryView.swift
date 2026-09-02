@@ -81,7 +81,7 @@ struct TranscriptLibraryView: View {
                         .font(AirTranslateDesign.Typography.stageTitle)
                         .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
-                    Text(AppText.autoSaveDescription)
+                    Text(AppText.transcriptPersistenceDescription)
                         .font(AirTranslateDesign.Typography.meta)
                         .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                         .lineLimit(2)
@@ -179,7 +179,7 @@ struct TranscriptLibraryView: View {
                     .font(AirTranslateDesign.Typography.stageTitle)
                     .foregroundStyle(AirTranslateDesign.Palette.textPrimary)
 
-                Text(AppText.autoSaveDescription)
+                Text(AppText.transcriptPersistenceDescription)
                     .font(AirTranslateDesign.Typography.meta)
                     .foregroundStyle(AirTranslateDesign.Palette.textSecondary)
                     .multilineTextAlignment(.center)

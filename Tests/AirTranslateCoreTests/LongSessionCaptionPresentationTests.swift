@@ -233,6 +233,7 @@ struct LongSessionCaptionPresentationTests {
         session.sourceLanguage = .english
         session.targetLanguage = .korean
         session.sessionDurationMode = .standard
+        session.isTranscriptPersistenceEnabled = true
         session.isAppleSourceAutoDetectionEnabled = false
         session.paragraphBreakSilenceInterval = 30
         session.isRunning = true
