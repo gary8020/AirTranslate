@@ -202,6 +202,23 @@ struct MenuBarStatusView: View {
                 .menuStyle(.button)
                 .buttonStyle(.plain)
                 .help(AppText.floatingLineCount)
+
+                Menu {
+                    ForEach(FloatingCaptionStability.allCases) { stability in
+                        Button(stability.title) {
+                            session.floatingCaptionStability = stability
+                        }
+                    }
+                } label: {
+                    IconMenuLabel(
+                        systemImage: "waveform.path.ecg",
+                        title: AppText.stability,
+                        value: session.floatingCaptionStability.title
+                    )
+                }
+                .menuStyle(.button)
+                .buttonStyle(.plain)
+                .help(AppText.captionStabilityDescription)
             }
         }
         .padding(AirTranslateDesign.Spacing.sm)

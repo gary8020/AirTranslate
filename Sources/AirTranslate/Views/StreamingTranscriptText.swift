@@ -12,6 +12,11 @@ struct StreamingTranscriptText: View {
     var textAlignment: TextAlignment = .leading
     var frameAlignment: Alignment = .topLeading
     var truncationMode: Text.TruncationMode = .head
+    /// When false, appended text lands in a single faded chunk instead of the
+    /// multi-chunk typewriter, so a centered caption re-lays out once per update.
+    var streamsAppendedTextInChunks = true
+    /// Crossfade duration applied when the text is replaced rather than extended.
+    var replacementCrossfadeDuration: Double = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -51,6 +56,7 @@ struct StreamingTranscriptText: View {
             .lineLimit(lineLimit)
             .multilineTextAlignment(textAlignment)
             .truncationMode(truncationMode)
+            .contentTransition(replacementCrossfadeDuration > 0 ? .opacity : .identity)
             .fixedSize(horizontal: false, vertical: true)
             .frame(maxWidth: .infinity, alignment: frameAlignment)
     }
@@ -84,18 +90,22 @@ struct StreamingTranscriptText: View {
         }
 
         guard newText.hasPrefix(visibleText), newTextLength > visibleText.count else {
-            settle(to: newText)
+            crossfadeSettle(to: newText)
             return
         }
 
         let remainingText = String(newText.dropFirst(visibleText.count))
         guard remainingText.count <= Self.maxAnimatedDeltaLength else {
-            settle(to: newText)
+            crossfadeSettle(to: newText)
             return
         }
 
-        let chunks = StreamingChunkPolicy.chunks(for: remainingText)
-        let delay = StreamingChunkPolicy.chunkDelayNanoseconds(chunkCount: chunks.count)
+        let chunks = streamsAppendedTextInChunks
+            ? StreamingChunkPolicy.chunks(for: remainingText)
+            : [remainingText]
+        let delay = streamsAppendedTextInChunks
+            ? StreamingChunkPolicy.chunkDelayNanoseconds(chunkCount: chunks.count)
+            : StreamingChunkPolicy.singleChunkFadeNanoseconds
         let fadeDuration = Double(delay) / 1_000_000_000
 
         streamTask = Task { @MainActor in
@@ -135,6 +145,16 @@ struct StreamingTranscriptText: View {
         appearingText = ""
         appearingOpacity = 1
     }
+
+    private func crossfadeSettle(to finalText: String) {
+        guard replacementCrossfadeDuration > 0 else {
+            settle(to: finalText)
+            return
+        }
+        withAnimation(.easeInOut(duration: replacementCrossfadeDuration)) {
+            settle(to: finalText)
+        }
+    }
 }
 
 enum StreamingChunkPolicy {
@@ -142,6 +162,7 @@ enum StreamingChunkPolicy {
     static let minimumChunkCharacters = 4
     static let maxChunkDelayNanoseconds: UInt64 = 18_000_000
     static let totalAnimationBudgetNanoseconds: UInt64 = 200_000_000
+    static let singleChunkFadeNanoseconds: UInt64 = 120_000_000
 
     static func chunks(for text: String) -> [String] {
         guard !text.isEmpty else { return [] }

@@ -620,7 +620,8 @@ struct SettingsView: View {
             FloatingCaptionPreview(
                 displayMode: session.floatingCaptionDisplayMode,
                 textSize: session.floatingCaptionTextSize,
-                lineCount: session.floatingCaptionLineCount
+                lineCount: session.floatingCaptionLineCount,
+                alignment: session.floatingCaptionTextAlignment
             )
 
             SettingsGroup(title: SettingsCopy.displaySettings) {
@@ -668,6 +669,38 @@ struct SettingsView: View {
                     .tint(AirTranslateDesign.Palette.accent)
                     .labelsHidden()
                     .frame(width: 252)
+                }
+
+                SettingsControlRow(
+                    title: AppText.captionStability,
+                    detail: AppText.captionStabilityDescription,
+                    systemImage: "waveform.path.ecg"
+                ) {
+                    Picker(AppText.captionStability, selection: $session.floatingCaptionStability) {
+                        ForEach(FloatingCaptionStability.allCases) { stability in
+                            Text(stability.title).tag(stability)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .tint(AirTranslateDesign.Palette.accent)
+                    .labelsHidden()
+                    .frame(width: 232)
+                }
+
+                SettingsControlRow(
+                    title: AppText.captionAlignment,
+                    detail: AppText.captionAlignmentDescription,
+                    systemImage: "text.aligncenter"
+                ) {
+                    Picker(AppText.captionAlignment, selection: $session.floatingCaptionTextAlignment) {
+                        ForEach(FloatingCaptionTextAlignment.allCases) { alignment in
+                            Text(alignment.title).tag(alignment)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .tint(AirTranslateDesign.Palette.accent)
+                    .labelsHidden()
+                    .frame(width: 168)
                 }
 
                 SettingsToggleRow(
@@ -1934,6 +1967,7 @@ private struct FloatingCaptionPreview: View {
     let displayMode: FloatingCaptionDisplayMode
     let textSize: FloatingCaptionTextSize
     let lineCount: FloatingCaptionLineCount
+    var alignment: FloatingCaptionTextAlignment = .center
 
     private let originalText = "We're going to focus on real-time translation."
     private let translationText = "우리는 실시간 번역에 집중할 것입니다."
@@ -1968,12 +2002,13 @@ private struct FloatingCaptionPreview: View {
                         )
                     )
 
-                VStack(spacing: 8) {
+                VStack(alignment: alignment.horizontalAlignment, spacing: 8) {
                     if displayMode == .original || displayMode == .originalAndTranslation {
                         Text(originalText)
                             .font(displayMode == .original ? previewPrimaryFont : previewSecondaryFont)
                             .foregroundStyle(AirTranslateDesign.Palette.floatingTextPrimary)
                             .lineLimit(lineCount.rawValue)
+                            .frame(maxWidth: .infinity, alignment: alignment.frameAlignment(vertical: .center))
                             .accessibilityLabel("\(AppText.original): \(originalText)")
                     }
 
@@ -1982,10 +2017,11 @@ private struct FloatingCaptionPreview: View {
                             .font(previewPrimaryFont)
                             .foregroundStyle(AirTranslateDesign.Palette.accentBright)
                             .lineLimit(lineCount.rawValue)
+                            .frame(maxWidth: .infinity, alignment: alignment.frameAlignment(vertical: .center))
                             .accessibilityLabel("\(AppText.translation): \(translationText)")
                     }
                 }
-                .multilineTextAlignment(.center)
+                .multilineTextAlignment(alignment.textAlignment)
                 .padding(.horizontal, 22)
                 .padding(.vertical, 16)
                 .background(AirTranslateDesign.Palette.floatingScrimBottom, in: RoundedRectangle(cornerRadius: AirTranslateDesign.surfaceRadius, style: .continuous))

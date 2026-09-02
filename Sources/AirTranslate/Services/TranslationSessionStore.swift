@@ -81,6 +81,8 @@ private enum SettingsKey {
     static let floatingCaptionTextSize = "floatingCaptionTextSize"
     static let floatingCaptionLineCount = "floatingCaptionLineCount"
     static let keepsFloatingCaptionAboveOtherWindows = "keepsFloatingCaptionAboveOtherWindows"
+    static let floatingCaptionStability = "floatingCaptionStability"
+    static let floatingCaptionTextAlignment = "floatingCaptionTextAlignment"
     static let paragraphBreakSilenceInterval = "paragraphBreakSilenceInterval"
     static let savedTranscriptContentMode = "savedTranscriptContentMode"
     static let sessionDurationMode = "sessionDurationMode"
@@ -405,9 +407,6 @@ final class TranslationSessionStore {
     private static let largeTranscriptTranslationCharacterLimit = 4_000
     private static let veryLargeTranscriptTranslationCharacterLimit = 10_000
     private static let defaultTranscriptCheckpointInterval: TimeInterval = 30
-    private static let floatingCaptionEarlyRevisionWindow = 0.45
-    private static let minimumFloatingCaptionDwell = 1.2
-    private static let maximumFloatingCaptionDwell = 2.2
     private static let transcribeOnlyNoticeDisplayDuration: TimeInterval = 10
     static let geminiSessionRefreshInterval: TimeInterval = 570
     static let metaSessionRefreshInterval: TimeInterval = 3_300
@@ -574,6 +573,16 @@ final class TranslationSessionStore {
     var keepsFloatingCaptionAboveOtherWindows = true {
         didSet { persistSelectedSettings() }
     }
+    var floatingCaptionStability = FloatingCaptionStability.balanced {
+        didSet { persistSelectedSettings() }
+    }
+    var floatingCaptionTextAlignment = FloatingCaptionTextAlignment.center {
+        didSet { persistSelectedSettings() }
+    }
+    /// Text width the floating window currently offers, reported by the view so
+    /// captions wrap to the real width instead of a per-size estimate. `0` means
+    /// unknown and falls back to the estimate.
+    var floatingCaptionMeasuredTextWidth: CGFloat = 0
     var paragraphBreakSilenceInterval = 5.0 {
         didSet { persistSelectedSettings() }
     }
@@ -680,6 +689,9 @@ final class TranslationSessionStore {
     private var floatingDisplayTranslationSourceText = ""
     private var floatingQueuedTranslationText = ""
     private var floatingQueuedTranslationSourceText = ""
+    private var floatingTranslationPresentedAt = Date.distantPast
+    private var floatingTranslationUnreadLength = 0
+    private var floatingTranslationHoldTask: Task<Void, Never>?
     private var floatingPresentationTask: Task<Void, Never>?
     private var sourceLanguageByLineID: [UUID: LanguageOption] = [:]
     private var pendingTranslationSourceText = ""
@@ -1842,15 +1854,15 @@ final class TranslationSessionStore {
     var floatingSourceText: String {
         let displayText = floatingPresentedSourceText.trimmingCharacters(in: .whitespacesAndNewlines)
         if !displayText.isEmpty {
-            return floatingCaptionText(from: displayText)
+            return floatingCaptionText(from: displayText, usesPrimaryFont: floatingSourceUsesPrimaryFont)
         }
 
         let liveDisplayText = floatingVisibleSourceTranscript()
         if !liveDisplayText.isEmpty {
-            return floatingCaptionText(from: liveDisplayText)
+            return floatingCaptionText(from: liveDisplayText, usesPrimaryFont: floatingSourceUsesPrimaryFont)
         }
 
-        return floatingCaptionText(from: lines.last?.sourceText)
+        return floatingCaptionText(from: lines.last?.sourceText, usesPrimaryFont: floatingSourceUsesPrimaryFont)
     }
 
     var floatingTranslationText: String {
@@ -1860,12 +1872,10 @@ final class TranslationSessionStore {
             guard !translatedText.isEmpty, translatedText != AppText.translating else {
                 return ""
             }
-            guard floatingDisplayTranslationSourceText.isEmpty
-                || translationSource(floatingDisplayTranslationSourceText, matches: displaySourceText)
-            else {
-                return ""
-            }
 
+            // A translation whose source has already been replaced stays on
+            // screen until its replacement arrives (or the hold times out) so the
+            // translation line never blinks empty between sentences.
             return floatingCaptionText(from: translatedText)
         }
 
@@ -2503,6 +2513,8 @@ final class TranslationSessionStore {
         pendingParagraphBreakBeforePartial = false
         floatingPresentationTask?.cancel()
         floatingPresentationTask = nil
+        floatingTranslationHoldTask?.cancel()
+        floatingTranslationHoldTask = nil
         if clearsVisibleLines {
             sourceLanguageByLineID.removeAll()
             floatingCommittedSourceText = ""
@@ -2516,6 +2528,8 @@ final class TranslationSessionStore {
             floatingDisplayTranslationSourceText = ""
             floatingQueuedTranslationText = ""
             floatingQueuedTranslationSourceText = ""
+            floatingTranslationPresentedAt = Date.distantPast
+            floatingTranslationUnreadLength = 0
         } else {
             rehydrateFloatingCaptionDisplayFromCurrentLine()
         }
@@ -2731,6 +2745,14 @@ final class TranslationSessionStore {
         if defaults.object(forKey: SettingsKey.keepsFloatingCaptionAboveOtherWindows) != nil {
             keepsFloatingCaptionAboveOtherWindows = defaults.bool(forKey: SettingsKey.keepsFloatingCaptionAboveOtherWindows)
         }
+        if let stabilityID = defaults.string(forKey: SettingsKey.floatingCaptionStability),
+           let stability = FloatingCaptionStability(rawValue: stabilityID) {
+            floatingCaptionStability = stability
+        }
+        if let alignmentID = defaults.string(forKey: SettingsKey.floatingCaptionTextAlignment),
+           let alignment = FloatingCaptionTextAlignment(rawValue: alignmentID) {
+            floatingCaptionTextAlignment = alignment
+        }
         if defaults.object(forKey: SettingsKey.paragraphBreakSilenceInterval) != nil {
             paragraphBreakSilenceInterval = min(
                 max(defaults.double(forKey: SettingsKey.paragraphBreakSilenceInterval), 1),
@@ -2823,6 +2845,8 @@ final class TranslationSessionStore {
         defaults.set(floatingCaptionTextSize.id, forKey: SettingsKey.floatingCaptionTextSize)
         defaults.set(floatingCaptionLineCount.id, forKey: SettingsKey.floatingCaptionLineCount)
         defaults.set(keepsFloatingCaptionAboveOtherWindows, forKey: SettingsKey.keepsFloatingCaptionAboveOtherWindows)
+        defaults.set(floatingCaptionStability.id, forKey: SettingsKey.floatingCaptionStability)
+        defaults.set(floatingCaptionTextAlignment.id, forKey: SettingsKey.floatingCaptionTextAlignment)
         defaults.set(paragraphBreakSilenceInterval, forKey: SettingsKey.paragraphBreakSilenceInterval)
         defaults.set(savedTranscriptContentMode.id, forKey: SettingsKey.savedTranscriptContentMode)
         defaults.set(sessionDurationMode.id, forKey: SettingsKey.sessionDurationMode)
@@ -2836,13 +2860,33 @@ final class TranslationSessionStore {
         await microphoneAudioCapture.stop()
     }
 
-    private func floatingCaptionText(from text: String?) -> String {
+    private func floatingCaptionText(from text: String?, usesPrimaryFont: Bool = true) -> String {
         guard let text else { return "" }
 
         return text.floatingCaptionTail(
             maxLines: floatingCaptionLineCount.rawValue,
-            lineWidthUnits: floatingCaptionTextSize.floatingLineWidthUnits
+            lineWidthUnits: floatingCaptionLineWidthUnits(usesPrimaryFont: usesPrimaryFont)
         )
+    }
+
+    func floatingCaptionLineWidthUnits(usesPrimaryFont: Bool) -> Double {
+        let textSize = floatingCaptionTextSize
+        let pointSize = usesPrimaryFont ? textSize.primaryPointSize : textSize.secondaryPointSize
+        let measuredUnits = FloatingCaptionTextSize.lineWidthUnits(
+            forAvailableWidth: floatingCaptionMeasuredTextWidth,
+            pointSize: pointSize
+        )
+        guard measuredUnits > 0 else {
+            let fallback = textSize.floatingLineWidthUnits
+            return usesPrimaryFont
+                ? fallback
+                : fallback * Double(textSize.primaryPointSize / textSize.secondaryPointSize)
+        }
+        return measuredUnits
+    }
+
+    private var floatingSourceUsesPrimaryFont: Bool {
+        floatingCaptionDisplayMode != .originalAndTranslation
     }
 
     private func loadSavedTranscripts() {
@@ -3829,6 +3873,8 @@ final class TranslationSessionStore {
             floatingDisplayTranslationSourceText = ""
             floatingQueuedTranslationText = ""
             floatingQueuedTranslationSourceText = ""
+            floatingTranslationPresentedAt = Date.distantPast
+            floatingTranslationUnreadLength = 0
             return
         }
 
@@ -3854,6 +3900,8 @@ final class TranslationSessionStore {
         }
         floatingQueuedTranslationText = ""
         floatingQueuedTranslationSourceText = ""
+        floatingTranslationPresentedAt = Date()
+        floatingTranslationUnreadLength = normalizedTranscriptForComparison(floatingDisplayTranslationText).count
     }
 
     private func refreshFloatingCaptionPresentation() {
@@ -3889,8 +3937,12 @@ final class TranslationSessionStore {
         scheduleFloatingPresentationAdvance()
     }
 
+    private var floatingStabilityProfile: FloatingCaptionStabilityProfile {
+        floatingCaptionStability.profile
+    }
+
     private func canUpdateFloatingPresentationImmediately(now: Date) -> Bool {
-        now.timeIntervalSince(floatingPresentedAt) <= Self.floatingCaptionEarlyRevisionWindow
+        now.timeIntervalSince(floatingPresentedAt) <= floatingStabilityProfile.earlyRevisionWindow
     }
 
     private func canAdvanceFloatingPresentation(now: Date = Date()) -> Bool {
@@ -3899,14 +3951,29 @@ final class TranslationSessionStore {
     }
 
     private func floatingCaptionDwellDuration() -> TimeInterval {
-        let dwell = 0.9 + Double(floatingPresentedUnreadLength) / 28.0
-        return min(
-            max(Self.minimumFloatingCaptionDwell, dwell),
-            Self.maximumFloatingCaptionDwell
-        )
+        floatingStabilityProfile.dwell(forUnreadLength: floatingPresentedUnreadLength)
     }
 
-    private func presentFloatingSourceText(_ text: String, resetsDwell: Bool = true) {
+    private func canAdvanceFloatingTranslation(now: Date = Date()) -> Bool {
+        guard !floatingDisplayTranslationText.isEmpty else { return true }
+        return now.timeIntervalSince(floatingTranslationPresentedAt) >= floatingTranslationDwellDuration()
+    }
+
+    private func floatingTranslationDwellDuration() -> TimeInterval {
+        floatingStabilityProfile.dwell(forUnreadLength: floatingTranslationUnreadLength)
+    }
+
+    /// The displayed translation belongs to a source that has since been replaced.
+    private var isFloatingTranslationDisplayStale: Bool {
+        guard !floatingDisplayTranslationText.isEmpty,
+              !floatingDisplayTranslationSourceText.isEmpty
+        else {
+            return false
+        }
+        return !translationSource(floatingDisplayTranslationSourceText, matches: floatingPresentedSourceText)
+    }
+
+    func presentFloatingSourceText(_ text: String, resetsDwell: Bool = true) {
         let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
 
@@ -3921,22 +3988,30 @@ final class TranslationSessionStore {
         } else {
             floatingPresentedUnreadLength += unreadLength
         }
-        if !floatingDisplayTranslationSourceText.isEmpty,
-           !translationSource(floatingDisplayTranslationSourceText, matches: text) {
-            floatingDisplayTranslationText = ""
-            floatingDisplayTranslationSourceText = ""
-        }
         promoteQueuedFloatingTranslationIfPossible()
+        if isFloatingTranslationDisplayStale {
+            scheduleFloatingTranslationHoldExpiry()
+        }
     }
 
     private func scheduleFloatingPresentationAdvance() {
         floatingPresentationTask?.cancel()
 
-        let remaining = max(
-            0.05,
-            floatingCaptionDwellDuration() - Date().timeIntervalSince(floatingPresentedAt)
-        )
-        let delayMilliseconds = max(50, Int(remaining * 1_000))
+        let now = Date()
+        var remaining = TimeInterval.greatestFiniteMagnitude
+        if !floatingQueuedSourceText.isEmpty {
+            remaining = min(remaining, floatingCaptionDwellDuration() - now.timeIntervalSince(floatingPresentedAt))
+        }
+        if !floatingQueuedTranslationText.isEmpty {
+            remaining = min(
+                remaining,
+                floatingTranslationDwellDuration() - now.timeIntervalSince(floatingTranslationPresentedAt)
+            )
+        }
+        if remaining == .greatestFiniteMagnitude {
+            remaining = 0.05
+        }
+        let delayMilliseconds = max(50, Int(max(0.05, remaining) * 1_000))
         floatingPresentationTask = Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(delayMilliseconds))
             guard !Task.isCancelled else { return }
@@ -3945,14 +4020,10 @@ final class TranslationSessionStore {
     }
 
     private func promoteQueuedFloatingPresentationIfReady() {
-        guard canAdvanceFloatingPresentation() else {
-            scheduleFloatingPresentationAdvance()
-            return
-        }
-
-        if !floatingQueuedSourceText.isEmpty {
+        if !floatingQueuedSourceText.isEmpty, canAdvanceFloatingPresentation() {
             presentFloatingSourceText(floatingQueuedSourceText)
-        } else {
+        }
+        if !floatingQueuedTranslationText.isEmpty {
             promoteQueuedFloatingTranslationIfPossible()
         }
 
@@ -3960,6 +4031,20 @@ final class TranslationSessionStore {
             scheduleFloatingPresentationAdvance()
         } else {
             floatingPresentationTask = nil
+        }
+    }
+
+    private func scheduleFloatingTranslationHoldExpiry() {
+        guard floatingTranslationHoldTask == nil else { return }
+
+        let timeout = floatingStabilityProfile.translationHoldTimeout
+        floatingTranslationHoldTask = Task { @MainActor in
+            try? await Task.sleep(for: .seconds(timeout))
+            guard !Task.isCancelled else { return }
+            floatingTranslationHoldTask = nil
+            guard isFloatingTranslationDisplayStale else { return }
+            floatingDisplayTranslationText = ""
+            floatingDisplayTranslationSourceText = ""
         }
     }
 
@@ -5162,7 +5247,7 @@ final class TranslationSessionStore {
         statusMessage = message
     }
 
-    private func updateFloatingTranslationPresentation(_ translatedText: String, sourceText: String) {
+    func updateFloatingTranslationPresentation(_ translatedText: String, sourceText: String) {
         let displaySourceText = isUsingOpenAIRealtime
             ? realtimeFloatingCaptionText(from: sourceText)
             : sourceText
@@ -5178,19 +5263,7 @@ final class TranslationSessionStore {
         }
 
         if shouldUpdateFloatingTranslationDisplay(for: displaySourceText) {
-            if floatingDisplayTranslationText.isEmpty
-                || canAdvanceFloatingPresentation()
-                || isWholeTextPrefix(
-                    normalizedTranscriptForComparison(floatingDisplayTranslationText),
-                    of: normalizedTranscriptForComparison(displayTranslatedText)
-                ) {
-                floatingDisplayTranslationText = displayTranslatedText
-                floatingDisplayTranslationSourceText = displaySourceText
-            } else {
-                floatingQueuedTranslationText = displayTranslatedText
-                floatingQueuedTranslationSourceText = displaySourceText
-                scheduleFloatingPresentationAdvance()
-            }
+            applyFloatingTranslationCandidate(displayTranslatedText, sourceText: displaySourceText)
             return
         }
 
@@ -5201,20 +5274,90 @@ final class TranslationSessionStore {
         }
     }
 
+    /// Decides whether a translation for the currently presented source may
+    /// replace the displayed one now or has to wait for the translation dwell.
+    ///
+    /// Extensions of the visible translation and translations that replace a
+    /// stale (already-superseded) translation render immediately; every other
+    /// rewrite is held so retranslations of a growing sentence do not flicker.
+    private func applyFloatingTranslationCandidate(_ translatedText: String, sourceText: String) {
+        let normalizedDisplayed = normalizedTranscriptForComparison(floatingDisplayTranslationText)
+        let normalizedCandidate = normalizedTranscriptForComparison(translatedText)
+
+        if floatingDisplayTranslationText.isEmpty || isFloatingTranslationDisplayStale {
+            setFloatingDisplayTranslation(translatedText, sourceText: sourceText, resetsDwell: true)
+            return
+        }
+
+        if normalizedDisplayed == normalizedCandidate {
+            floatingDisplayTranslationText = translatedText
+            floatingDisplayTranslationSourceText = sourceText
+            clearQueuedFloatingTranslation()
+            return
+        }
+
+        if isWholeTextPrefix(normalizedDisplayed, of: normalizedCandidate) {
+            setFloatingDisplayTranslation(translatedText, sourceText: sourceText, resetsDwell: false)
+            return
+        }
+
+        if canAdvanceFloatingTranslation() {
+            setFloatingDisplayTranslation(translatedText, sourceText: sourceText, resetsDwell: true)
+            return
+        }
+
+        floatingQueuedTranslationText = translatedText
+        floatingQueuedTranslationSourceText = sourceText
+        scheduleFloatingPresentationAdvance()
+    }
+
+    private func setFloatingDisplayTranslation(_ translatedText: String, sourceText: String, resetsDwell: Bool) {
+        let normalizedDisplayed = normalizedTranscriptForComparison(floatingDisplayTranslationText)
+        let normalizedCandidate = normalizedTranscriptForComparison(translatedText)
+        let unreadLength = max(
+            0,
+            normalizedCandidate.count - commonPrefixLength(normalizedDisplayed, normalizedCandidate)
+        )
+
+        floatingDisplayTranslationText = translatedText
+        floatingDisplayTranslationSourceText = sourceText
+        if resetsDwell {
+            floatingTranslationPresentedAt = Date()
+            floatingTranslationUnreadLength = unreadLength
+        } else {
+            floatingTranslationUnreadLength += unreadLength
+        }
+        clearQueuedFloatingTranslation()
+        floatingTranslationHoldTask?.cancel()
+        floatingTranslationHoldTask = nil
+    }
+
+    private func clearQueuedFloatingTranslation() {
+        floatingQueuedTranslationText = ""
+        floatingQueuedTranslationSourceText = ""
+    }
+
     private func promoteQueuedFloatingTranslationIfPossible() {
         guard !floatingQueuedTranslationText.isEmpty else { return }
         guard shouldUpdateFloatingTranslationDisplay(for: floatingQueuedTranslationSourceText) else {
             if floatingQueuedSourceText.isEmpty {
-                floatingQueuedTranslationText = ""
-                floatingQueuedTranslationSourceText = ""
+                clearQueuedFloatingTranslation()
             }
             return
         }
 
-        floatingDisplayTranslationText = floatingQueuedTranslationText
-        floatingDisplayTranslationSourceText = floatingQueuedTranslationSourceText
-        floatingQueuedTranslationText = ""
-        floatingQueuedTranslationSourceText = ""
+        guard floatingDisplayTranslationText.isEmpty
+            || isFloatingTranslationDisplayStale
+            || canAdvanceFloatingTranslation()
+        else {
+            return
+        }
+
+        setFloatingDisplayTranslation(
+            floatingQueuedTranslationText,
+            sourceText: floatingQueuedTranslationSourceText,
+            resetsDwell: true
+        )
     }
 
     private func shouldUpdateFloatingTranslationDisplay(for sourceText: String) -> Bool {

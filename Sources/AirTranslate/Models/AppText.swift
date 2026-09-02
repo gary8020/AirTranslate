@@ -691,6 +691,12 @@ enum AppText {
         japanese: "行数",
         chineseSimplified: "行数"
     )
+    static let stability = localized(
+        english: "Stability",
+        korean: "안정화",
+        japanese: "安定化",
+        chineseSimplified: "稳定"
+    )
     static let settings = localized(
         english: "Settings",
         korean: "설정",
@@ -735,6 +741,25 @@ enum AppText {
     static let textSizeMedium = localized(english: "Medium", korean: "보통", japanese: "中", chineseSimplified: "中")
     static let textSizeLarge = localized(english: "Large", korean: "크게", japanese: "大", chineseSimplified: "大")
     static let textSizeExtraLarge = localized(english: "Extra Large", korean: "아주 크게", japanese: "特大", chineseSimplified: "特大")
+    static let captionStability = localized(english: "Caption Stability", korean: "자막 안정화", japanese: "字幕の安定化", chineseSimplified: "字幕稳定")
+    static let captionStabilityDescription = localized(
+        english: "Holds already-shown captions longer before a rewrite replaces them. Steadier settings shake less but react a little later.",
+        korean: "이미 보인 자막을 재작성으로 바꾸기 전에 더 오래 유지합니다. 안정 쪽일수록 덜 흔들리지만 반응이 조금 늦어집니다.",
+        japanese: "表示済みの字幕を書き換えで置き換える前に、より長く保持します。安定側ほど揺れが減り、反応は少し遅くなります。",
+        chineseSimplified: "在重写替换之前更长时间地保留已显示的字幕。越稳定抖动越少，但反应会稍慢。"
+    )
+    static let captionStabilityResponsive = localized(english: "Responsive", korean: "빠름", japanese: "即応", chineseSimplified: "灵敏")
+    static let captionStabilityBalanced = localized(english: "Balanced", korean: "기본", japanese: "標準", chineseSimplified: "均衡")
+    static let captionStabilitySteady = localized(english: "Steady", korean: "안정", japanese: "安定", chineseSimplified: "稳定")
+    static let captionAlignment = localized(english: "Caption Alignment", korean: "자막 정렬", japanese: "字幕の配置", chineseSimplified: "字幕对齐")
+    static let captionAlignmentDescription = localized(
+        english: "Left alignment keeps the start of each line fixed while words stream in, so lines do not slide sideways.",
+        korean: "왼쪽 정렬은 단어가 추가될 때 줄의 시작점이 고정되어 자막이 좌우로 밀리지 않습니다.",
+        japanese: "左揃えでは単語が追加されても行の開始位置が固定され、字幕が左右にずれません。",
+        chineseSimplified: "左对齐时，逐词出现的字幕行起点保持固定，不会左右滑动。"
+    )
+    static let captionAlignmentCenter = localized(english: "Center", korean: "가운데", japanese: "中央", chineseSimplified: "居中")
+    static let captionAlignmentLeading = localized(english: "Left", korean: "왼쪽", japanese: "左", chineseSimplified: "左")
     static let noFloatingCaptionsYet = localized(
         english: "Live captions will appear here.",
         korean: "실시간 자막이 여기에 표시됩니다."

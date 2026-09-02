@@ -3,12 +3,23 @@ import SwiftUI
 struct FloatingCaptionWindowView: View {
     @Bindable var session: TranslationSessionStore
 
+    private static let lineSpacing: CGFloat = 5
+    private static let blockSpacing: CGFloat = 8
+    private static let replacementCrossfadeDuration = 0.16
+
     var body: some View {
         ZStack {
             AirTranslateDesign.Palette.transparent
 
-            VStack(spacing: AirTranslateDesign.Spacing.xs) {
+            VStack(spacing: Self.blockSpacing) {
                 content
+            }
+            .onGeometryChange(for: CGFloat.self) { proxy in
+                proxy.size.width
+            } action: { width in
+                if session.floatingCaptionMeasuredTextWidth != width {
+                    session.floatingCaptionMeasuredTextWidth = width
+                }
             }
             .padding(.horizontal, AirTranslateDesign.Spacing.lg)
             .padding(.vertical, AirTranslateDesign.Spacing.md)
@@ -49,40 +60,40 @@ struct FloatingCaptionWindowView: View {
         )
     }
 
+    /// Every caption block reserves the full height for its configured line
+    /// count and anchors its text to the seam between blocks. Line-count changes
+    /// and roll-ups therefore never move the neighbouring block.
     @ViewBuilder
     private var content: some View {
         switch session.floatingCaptionDisplayMode {
         case .original:
-            subtitleText(sourceText, font: session.floatingCaptionTextSize.primaryFont)
+            primaryBlock(sourceText.isEmpty ? AppText.noFloatingCaptionsYet : sourceText, anchor: .bottom)
             if !noticeText.isEmpty {
-                noticeSubtitleText(noticeText)
+                secondaryBlock(noticeText, anchor: .top)
             }
         case .originalAndTranslation:
-            if !sourceText.isEmpty {
-                subtitleText(sourceText, font: session.floatingCaptionTextSize.secondaryFont)
-                    .foregroundStyle(AirTranslateDesign.Palette.floatingTextSecondary)
-                if !translationText.isEmpty {
-                    subtitleText(translationText, font: session.floatingCaptionTextSize.primaryFont)
-                } else if !noticeText.isEmpty {
-                    noticeSubtitleText(noticeText)
-                } else {
-                    subtitleText(" ", font: session.floatingCaptionTextSize.primaryFont)
-                        .opacity(0)
-                }
-            } else if !translationText.isEmpty {
-                subtitleText(translationText, font: session.floatingCaptionTextSize.primaryFont)
-            } else if !noticeText.isEmpty {
-                noticeSubtitleText(noticeText)
+            if sourceText.isEmpty, translationText.isEmpty, noticeText.isEmpty {
+                primaryBlock(AppText.noFloatingCaptionsYet, anchor: .bottom)
+                    .frame(height: primaryBlockHeight + secondaryBlockHeight + Self.blockSpacing)
             } else {
-                subtitleText(AppText.noFloatingCaptionsYet, font: session.floatingCaptionTextSize.primaryFont)
+                secondaryBlock(sourceText, anchor: .bottom)
+                if !translationText.isEmpty {
+                    primaryBlock(translationText, anchor: .top)
+                } else if !noticeText.isEmpty {
+                    primaryBlock(noticeText, anchor: .top, font: session.floatingCaptionTextSize.secondaryFont)
+                } else {
+                    primaryBlock("", anchor: .top)
+                }
             }
         case .translation:
             if !translationText.isEmpty {
-                subtitleText(translationText, font: session.floatingCaptionTextSize.primaryFont)
+                primaryBlock(translationText, anchor: .bottom)
             } else if !noticeText.isEmpty {
-                noticeSubtitleText(noticeText)
+                primaryBlock(noticeText, anchor: .bottom, font: session.floatingCaptionTextSize.secondaryFont)
             } else if sourceText.isEmpty {
-                subtitleText(AppText.noFloatingCaptionsYet, font: session.floatingCaptionTextSize.primaryFont)
+                primaryBlock(AppText.noFloatingCaptionsYet, anchor: .bottom)
+            } else {
+                primaryBlock("", anchor: .bottom)
             }
         }
     }
@@ -112,42 +123,82 @@ struct FloatingCaptionWindowView: View {
         session.floatingCaptionLineCount.rawValue
     }
 
+    private var alignment: FloatingCaptionTextAlignment {
+        session.floatingCaptionTextAlignment
+    }
+
+    static func blockHeight(lineHeight: CGFloat, lineCount: Int) -> CGFloat {
+        lineHeight * CGFloat(lineCount) + CGFloat(max(0, lineCount - 1)) * lineSpacing
+    }
+
+    private var primaryBlockHeight: CGFloat {
+        Self.blockHeight(lineHeight: session.floatingCaptionTextSize.primaryLineHeight, lineCount: lineLimit)
+    }
+
+    private var secondaryBlockHeight: CGFloat {
+        Self.blockHeight(lineHeight: session.floatingCaptionTextSize.secondaryLineHeight, lineCount: lineLimit)
+    }
+
     private var preferredHeight: CGFloat {
-        let textSize = session.floatingCaptionTextSize
-        let lineCount = CGFloat(lineLimit)
-        let primaryHeight = textSize.primaryLineHeight * lineCount + CGFloat(lineLimit - 1) * 5
-        let secondaryHeight = textSize.secondaryLineHeight * lineCount + CGFloat(lineLimit - 1) * 5
         let textHeight: CGFloat
 
         switch session.floatingCaptionDisplayMode {
         case .original, .translation:
-            textHeight = noticeText.isEmpty ? primaryHeight : primaryHeight + secondaryHeight + 8
+            textHeight = noticeText.isEmpty
+                ? primaryBlockHeight
+                : primaryBlockHeight + secondaryBlockHeight + Self.blockSpacing
         case .originalAndTranslation:
-            textHeight = primaryHeight + secondaryHeight + 8
+            textHeight = primaryBlockHeight + secondaryBlockHeight + Self.blockSpacing
         }
 
         return min(max(90, textHeight + 28), 720)
     }
 
-    private func subtitleText(_ text: String, font: Font) -> some View {
-        StreamingTranscriptText(
-            text: text.isEmpty ? AppText.noFloatingCaptionsYet : text,
-            font: font,
-            foregroundColor: AirTranslateDesign.Palette.floatingTextPrimary,
-            isTextSelectionEnabled: false,
-            lineLimit: lineLimit,
-            textAlignment: .center,
-            frameAlignment: .center,
-            truncationMode: .tail
+    private func primaryBlock(_ text: String, anchor: VerticalAlignment, font: Font? = nil) -> some View {
+        captionBlock(
+            text,
+            font: font ?? session.floatingCaptionTextSize.primaryFont,
+            color: font == nil
+                ? AirTranslateDesign.Palette.floatingTextPrimary
+                : AirTranslateDesign.Palette.floatingTextSecondary,
+            height: primaryBlockHeight,
+            anchor: anchor
         )
-        .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity, alignment: .center)
-        .lineSpacing(5)
-        .shadow(color: AirTranslateDesign.Palette.floatingShadow, radius: 8, x: 0, y: 2)
     }
 
-    private func noticeSubtitleText(_ text: String) -> some View {
-        subtitleText(text, font: session.floatingCaptionTextSize.secondaryFont)
-            .foregroundStyle(AirTranslateDesign.Palette.floatingTextSecondary)
+    private func secondaryBlock(_ text: String, anchor: VerticalAlignment) -> some View {
+        captionBlock(
+            text,
+            font: session.floatingCaptionTextSize.secondaryFont,
+            color: AirTranslateDesign.Palette.floatingTextSecondary,
+            height: secondaryBlockHeight,
+            anchor: anchor
+        )
+    }
+
+    private func captionBlock(
+        _ text: String,
+        font: Font,
+        color: Color,
+        height: CGFloat,
+        anchor: VerticalAlignment
+    ) -> some View {
+        StreamingTranscriptText(
+            text: text,
+            font: font,
+            foregroundColor: color,
+            isTextSelectionEnabled: false,
+            lineLimit: lineLimit,
+            textAlignment: alignment.textAlignment,
+            frameAlignment: alignment.frameAlignment(vertical: anchor),
+            truncationMode: .tail,
+            streamsAppendedTextInChunks: false,
+            replacementCrossfadeDuration: Self.replacementCrossfadeDuration
+        )
+        .multilineTextAlignment(alignment.textAlignment)
+        .lineSpacing(Self.lineSpacing)
+        .frame(maxWidth: .infinity, minHeight: height, maxHeight: height, alignment: alignment.frameAlignment(vertical: anchor))
+        .clipped()
+        .shadow(color: AirTranslateDesign.Palette.floatingShadow, radius: 8, x: 0, y: 2)
     }
 }

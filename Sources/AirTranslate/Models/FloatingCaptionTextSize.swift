@@ -37,6 +37,7 @@ enum FloatingCaptionTextSize: String, CaseIterable, Identifiable {
         secondaryPointSize * 1.28
     }
 
+    /// Fallback wrap budget used until the floating window reports its real width.
     var floatingLineWidthUnits: Double {
         switch self {
         case .small:
@@ -50,7 +51,16 @@ enum FloatingCaptionTextSize: String, CaseIterable, Identifiable {
         }
     }
 
-    private var primaryPointSize: CGFloat {
+    /// Converts the measured text width of the floating window into formatter
+    /// width units. One unit is one em of the given font, which matches the
+    /// formatter's CJK width and slightly overestimates Latin glyphs so wrapped
+    /// lines never exceed the real width and SwiftUI does not re-wrap them.
+    static func lineWidthUnits(forAvailableWidth width: CGFloat, pointSize: CGFloat) -> Double {
+        guard width > 0, pointSize > 0 else { return 0 }
+        return Double(width / pointSize)
+    }
+
+    var primaryPointSize: CGFloat {
         switch self {
         case .small:
             24
@@ -63,7 +73,7 @@ enum FloatingCaptionTextSize: String, CaseIterable, Identifiable {
         }
     }
 
-    private var secondaryPointSize: CGFloat {
+    var secondaryPointSize: CGFloat {
         switch self {
         case .small:
             16
