@@ -31,7 +31,7 @@ AirTranslate는 Mac에서 재생되는 소리를 실시간으로 기록하고 �
 
 사용자용 소개, 설치 안내, 다운로드 경로는 [AirTranslate 공식 안내 사이트](https://himomohi.github.io/AirTranslate/)에서 볼 수 있습니다.
 
-기본 처리 흐름은 Apple 프레임워크를 사용합니다. GPT Realtime과 Gemini Live Translate는 선택형 API 기반 모드이며, 사용자가 직접 해당 API 키를 입력했을 때만 사용할 수 있습니다.
+기본 처리 흐름은 Apple 프레임워크를 사용합니다. GPT Realtime, Gemini Live Translate, Meta Scribe는 선택형 API 기반 모드이며, 사용자가 직접 해당 API 키를 입력했을 때만 사용할 수 있습니다.
 
 ## 왜 AirTranslate인가
 
@@ -39,13 +39,24 @@ AirTranslate는 Mac에서 재생되는 소리를 실시간으로 기록하고 �
 - **읽기 좋은 실시간 작업 공간:** 원문과 번역을 나란히 유지합니다.
 - **플로팅 자막:** 다른 앱 위에 자막을 띄워 영상이나 회의를 보며 확인할 수 있습니다.
 - **Apple 기본 처리:** Apple Speech와 Apple Translation을 기본 경로로 유지합니다.
-- **선택형 API 모드:** 필요한 경우에만 OpenAI Realtime Translation 또는 Gemini Live Translate를 켭니다.
-- **Keychain 저장:** OpenAI와 Gemini API 키는 사용자가 입력하고 macOS Keychain에 저장합니다.
+- **선택형 API 모드:** 필요한 경우에만 OpenAI Realtime Translation, Gemini Live Translate 또는 Meta Scribe를 켭니다.
+- **Keychain 저장:** OpenAI, Gemini, Meta API 키는 사용자가 입력하고 macOS Keychain에 저장합니다.
 - **일반 텍스트 기록:** 저장된 기록은 Mac 안의 `.txt` 파일로 남습니다.
 
 ![AirTranslate demo](docs/assets/airtranslate-readme-demo.gif)
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
+
+## 1.7.0 주요 변경사항
+
+- **Meta Scribe:** 선택형 Muse Voice Transcribe가 화자 라벨과 25개 언어 코드 스위칭 실시간 전사를 기존 번역 레이어 앞에 추가합니다. 설정에서 Meta API 키를 입력하며, Apple 기본 모드는 계속 로컬 우선 기본값입니다.
+- **Stage & Console:** 설정 사이드바를 없애고, 턴 기반 자막 블록이 창을 채우며 최신 턴은 시작/중지·오디오 소스·언어 경로·출력·음성·엔진이 있는 하단 콘솔 바로 위에 고정됩니다.
+- **공유 Air teal 디자인 시스템:** 듣는 중/일시정지/중지 색, 레이어드 표면, 자막 타이포그래피가 메인 창·설정·기록 보관함·플로팅 자막·메뉴 막대에 라이트/다크 모두 적용됩니다.
+- **키보드 포커스 링:** 커스텀 제어는 액센트 색 포커스 링을 쓰고, 시작 버튼이 초기 포커스를 받으며, 세션 잠금 제어는 하나의 잠금 표시로 흐려지면서도 보조 기술에 완전히 설명됩니다.
+- **Apple 기본 모드 장시간 롤오버:** 확정된 글자가 약 600자가 되거나 긴 무음이 있으면 라이브 줄을 새 턴 블록으로 롤오버해, 인식 갱신마다 전체 전사를 메인 스레드에서 다시 처리하지 않습니다. 저장된 기록에는 세션 전체가 남습니다.
+- **스테이지 빈 화면 방지:** 피드는 최근 12개 턴 블록만 일반 스택으로 그려, 긴 세션이나 중지/시작 뒤 자막이 사라지던 문제를 고치고 렌더 비용을 일정하게 유지합니다.
+
+전체 내용은 [AirTranslate 1.7.0 릴리즈 노트](https://github.com/himomohi/AirTranslate/releases/tag/v1.7.0)에서 확인할 수 있습니다.
 
 ## 1.6.2 주요 변경사항
 
@@ -120,6 +131,7 @@ AirTranslate는 Mac에서 재생되는 소리를 실시간으로 기록하고 �
 - OpenAI Realtime Translation 기반 GPT 모드
 - 원문 자막용 선택형 `gpt-live-transcribe` GPT 전사 모드
 - Gemini 3.5 Live Translate 모드와 자동 언어 감지 원문 전사용 선택형 Gemini 3.5 Transcribe Live 모드
+- 화자 라벨과 25개 언어 전사를 기존 번역 레이어 앞에 두는 선택형 Meta Scribe 모드
 - API 기반 번역 스트림용 LIVE 번역 모드
 - 마이크 입력 안정성 개선(중복 입력/전환 흔들림 완화)
 - 원문/번역 언어 한 번에 바꾸기
@@ -139,10 +151,11 @@ AirTranslate는 빠른 선택과 상세 설정을 분리합니다.
 | GPT 모드 | OpenAI Realtime 실시간 번역 | 오디오를 OpenAI Realtime Translation으로 직접 스트리밍합니다. 저장된 API 키가 없으면 설정 모달을 열고 API 키 입력칸에 포커스를 둡니다. |
 | GPT 전사 | OpenAI 원문 자막 | 선택형 모드에서 OpenAI API 키를 제공하면 `gpt-live-transcribe`로 번역 없이 원문 자막을 만듭니다. |
 | Gemini Live | Gemini 3.5 Live Translate 또는 원문 전사 | Gemini 3.5 Live Translate는 원문/번역 전사를 표시하고, Gemini 3.5 Transcribe Live는 자동 언어 감지 원문 자막만 표시합니다. 두 모드 모두 사용자가 제공한 Gemini API 키가 필요합니다. |
+| Meta Scribe | 화자 라벨이 있는 다국어 자막 | Muse Voice Transcribe로 화자 라벨과 25개 언어 코드 스위칭 실시간 전사를 만든 뒤 AirTranslate의 기존 번역 레이어를 사용합니다. Meta API 키가 필요합니다. |
 | 전사만 | 번역 없이 원문 자막만 필요할 때 | Translation 없이 원문 기록만 남깁니다. |
 | LIVE 번역 | 번역 스트림을 직접 만들고 싶을 때 | 선택한 API 제공자의 실시간 번역 모델이 번역 결과를 직접 생성하는 경로를 사용합니다. |
 
-GPT/Gemini 모델 세부 선택, API 키 입력, 기록 다듬기, 음성 출력은 톱니바퀴 설정 모달에서 관리합니다. 메인 사이드바에는 자주 쓰는 선택만 남깁니다.
+GPT, Gemini, Meta 모델 세부 선택, API 키 입력, 기록 다듬기, 음성 출력은 톱니바퀴 설정 창에서 관리합니다. 일상적인 캡처 제어는 Stage 아래 떠 있는 콘솔 바에 있습니다.
 
 ## 개인정보와 API 키
 
@@ -151,11 +164,12 @@ AirTranslate는 계정 시스템이나 개발자 운영 중계/백엔드 서버�
 - Apple 기본 모드는 macOS 프레임워크와 Apple 언어 자산을 사용합니다.
 - GPT 모드 또는 선택형 GPT 전사 모드를 켰을 때만 필요한 오디오나 텍스트가 사용자의 OpenAI API 키로 OpenAI API에 직접 전송됩니다.
 - Gemini Live Translate 또는 Gemini 3.5 Transcribe Live를 켰을 때만 필요한 오디오가 사용자의 Gemini API 키로 Google Gemini API에 직접 전송됩니다.
-- OpenAI와 Gemini API 키는 사용자가 제공해 Keychain에 저장하며, 앱에 하드코딩하거나 커밋하거나 릴리즈 패키지에 포함하지 않습니다.
+- Meta Scribe를 켰을 때만 필요한 오디오가 사용자의 Meta API 키로 Meta Muse Voice Transcribe API에 직접 전송됩니다.
+- OpenAI, Gemini, Meta API 키는 사용자가 제공해 Keychain에 저장하며, 앱에 하드코딩하거나 커밋하거나 릴리즈 패키지에 포함하지 않습니다.
 - API 키는 `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` 옵션으로 macOS Keychain에 저장합니다.
 - 저장된 기록은 사용자 Mac의 일반 텍스트 파일입니다.
 
-API 키가 필요하면 [OpenAI API 키 페이지](https://platform.openai.com/api-keys) 또는 [Google AI Studio API 키 페이지](https://aistudio.google.com/app/apikey)에서 키를 만든 뒤 AirTranslate 설정 모달에 붙여 넣으세요.
+API 키가 필요하면 [OpenAI API 키 페이지](https://platform.openai.com/api-keys), [Google AI Studio API 키 페이지](https://aistudio.google.com/app/apikey) 또는 [Meta 개발자 포털](https://dev.meta.ai)에서 키를 만든 뒤 AirTranslate 설정 창에 붙여 넣으세요.
 
 ## Apple 번역 언어팩
 
@@ -184,7 +198,7 @@ ScreenCaptureKit의 시스템 오디오 캡처 경로 때문에 화면 기록 �
 
 최초 요청 뒤에도 현재 앱에서 권한을 사용할 수 없다면 **시스템 설정 > 개인정보 보호 및 보안 > 화면 및 시스템 오디오 기록**에서 현재 설치본을 확인한 뒤 앱을 종료하고 다시 실행하세요. 일반적인 `tccutil` 초기화는 필요하지 않습니다. 공개 ad-hoc 서명 빌드는 업데이트 간 TCC 권한 승계를 보장하지 않으므로 새 설치본을 다시 확인해야 할 수 있습니다.
 
-권한이 올바른데도 Gemini Live 시작이 멈춘 것처럼 보였다면 **설정 > 정보**에서 1.6.2인지 확인하세요. 이 버전은 시작 중 숨겨진 설정 세그먼트 제어가 AppKit 포커스 탐색/AttributeGraph 루프에 들어가지 않도록 합니다.
+권한이 올바른데도 Gemini Live 시작이 멈춘 것처럼 보였다면 **설정 > 정보**에서 1.7.0 이상인지 확인하세요. 1.6.2부터는 시작 중 숨겨진 설정 세그먼트 제어가 AppKit 포커스 탐색/AttributeGraph 루프에 들어가지 않습니다.
 
 ## 다운로드
 
@@ -193,7 +207,7 @@ ScreenCaptureKit의 시스템 오디오 캡처 경로 때문에 화면 기록 �
 AirTranslate는 Apache-2.0 라이선스의 오픈소스 프로젝트입니다. DMG 파일은 macOS 사용자가 더 쉽게 설치할 수 있도록 추가로 제공되는 설치 패키지이며, 소스코드 공개를 대체하는 것이 아닙니다. 소스코드, 빌드 스크립트, 릴리즈 자료, LICENSE, NOTICE 파일은 모두 이 저장소에 공개되어 있습니다.
 
 - [AirTranslate.dmg 다운로드](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.6.2.zip 다운로드](https://github.com/himomohi/AirTranslate/releases/download/v1.6.2/AirTranslate-1.6.2.zip)
+- [AirTranslate-1.7.0.zip 다운로드](https://github.com/himomohi/AirTranslate/releases/download/v1.7.0/AirTranslate-1.7.0.zip)
 - [AirTranslate.dmg.sha256 다운로드](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [버전 히스토리 보기](Release/VERSION-HISTORY.md)
 
@@ -218,6 +232,7 @@ cat AirTranslate.dmg.sha256
 - Apple Speech 및 Apple Translation 프레임워크 사용 가능 환경
 - 선택 사항: GPT 모드 또는 GPT 전사용 OpenAI API 키
 - 선택 사항: Gemini Live 모드용 Gemini API 키
+- 선택 사항: Meta Scribe 모드용 Meta API 키
 
 ## 소스에서 빌드
 
@@ -256,8 +271,8 @@ swift test
 
 1. 원문 언어와 번역 언어를 선택합니다.
 2. 방향을 바꾸고 싶으면 가운데 언어 바꾸기 버튼을 누릅니다.
-3. Apple 기본 모드, GPT 모드 또는 Gemini Live를 선택합니다.
-4. API 기반 모드에서 안내가 나오면 설정 모달에 OpenAI 또는 Gemini API 키를 입력합니다.
+3. 콘솔 바에서 Apple 기본 모드, GPT 모드, Gemini Live 또는 Meta Scribe를 선택합니다.
+4. API 기반 모드에서 안내가 나오면 설정 창에 OpenAI, Gemini 또는 Meta API 키를 입력합니다.
 5. 시작 버튼을 누릅니다.
 6. Mac에서 회의, 강의, 영상, 인터뷰, 스트림 오디오를 재생합니다.
 7. 메인 작업 공간이나 플로팅 자막 창에서 원문과 번역을 확인합니다.

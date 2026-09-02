@@ -31,7 +31,7 @@ AirTranslate 可以捕获 Mac 正在播放的音频，实时转写并翻译，�
 
 面向用户的产品介绍、安装指南和下载入口可在 [AirTranslate 官方指南网站](https://himomohi.github.io/AirTranslate/) 查看。
 
-默认流程使用 Apple 框架。GPT Realtime 和 Gemini Live Translate 是可选 API 模式，只有在用户提供对应 API key 后才会启用。
+默认流程使用 Apple 框架。GPT Realtime、Gemini Live Translate 和 Meta Scribe 是可选 API 模式，只有在用户提供对应 API key 后才会启用。
 
 ## 为什么选择 AirTranslate
 
@@ -39,13 +39,24 @@ AirTranslate 可以捕获 Mac 正在播放的音频，实时转写并翻译，�
 - **易读的实时工作区:** 原文和译文并排显示。
 - **悬浮字幕:** 可在其他应用上方显示字幕。
 - **默认 Apple 流程:** 以 Apple Speech 和 Apple Translation 作为基础路径。
-- **可选 API 模式:** 仅在需要时启用 OpenAI Realtime Translation 或 Gemini Live Translate。
-- **Keychain 存储:** OpenAI 和 Gemini API key 由用户输入，并保存在 macOS Keychain。
+- **可选 API 模式:** 仅在需要时启用 OpenAI Realtime Translation、Gemini Live Translate 或 Meta Scribe。
+- **Keychain 存储:** OpenAI、Gemini 和 Meta API key 由用户输入，并保存在 macOS Keychain。
 - **纯文本历史:** 已保存记录是 Mac 上普通的 `.txt` 文件。
 
 ![AirTranslate demo](docs/assets/airtranslate-readme-demo.gif)
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
+
+## 1.7.0 主要更新
+
+- **Meta Scribe:** 可选 Muse Voice Transcribe 在现有翻译层之前加入实时转写、说话人标签和 25 种语言的语码转换。请在设置中提供 Meta API key；Apple 默认模式仍是本地优先默认路径。
+- **Stage & Console:** 已移除设置侧边栏。实时字幕以回合块填满窗口，最新回合固定在底部控制台正上方，控制台提供开始/停止、音频源、语言路径、输出、语音和当前引擎。
+- **共享 Air teal 设计系统:** 收听/暂停/停止颜色、分层表面和字幕字体层级现已同时应用于主窗口、设置、记录库、悬浮字幕和菜单栏的浅色与深色外观。
+- **键盘焦点环:** 自定义控件使用强调色焦点环，开始按钮获得初始焦点，会话锁定的控件以单个锁定指示变暗，同时仍向辅助技术完整描述。
+- **Apple 默认模式长时间滚动到新的回合块:** 已确认文本约 600 字或出现较长静音时，实时行会滚动到新的回合块，识别更新不再在主线程上重处理整段转写。已保存记录仍包含完整会话。
+- **舞台不再空白:** 信息流用普通堆栈只渲染最近 12 个回合块，修复长会话或停止/开始后字幕消失的问题，并保持渲染成本恒定。
+
+完整内容请参阅 [AirTranslate 1.7.0 发布说明](https://github.com/himomohi/AirTranslate/releases/tag/v1.7.0)。
 
 ## 1.6.2 主要更新
 
@@ -119,6 +130,7 @@ AirTranslate 可以捕获 Mac 正在播放的音频，实时转写并翻译，�
 - 基于 OpenAI Realtime Translation 的 GPT 模式
 - 用于原文字幕的可选 `gpt-live-transcribe` GPT 转写模式
 - Gemini 3.5 Live Translate 模式，以及可自动检测口语的原文专用 Gemini 3.5 Transcribe Live 可选模式
+- 在现有翻译层之前提供说话人标签和 25 种语言字幕的可选 Meta Scribe 模式
 - 面向 API 翻译流的 LIVE 翻译模式
 - Apple 默认模式的源语言自动检测已暂时停用，以改进语言切换稳定性
 - 改进麦克风输入稳定性，降低重复片段/切换抖动
@@ -139,10 +151,11 @@ AirTranslate 将快速选择和详细设置分开。
 | GPT 模式 | OpenAI Realtime 实时翻译 | 将音频直接流式发送到 OpenAI Realtime Translation。如果没有保存 API key，AirTranslate 会打开设置弹窗并聚焦 API key 输入框。 |
 | GPT 转写 | OpenAI 原文字幕 | 在可选模式中提供 OpenAI API key 后，使用 `gpt-live-transcribe` 生成不含翻译的原文字幕。 |
 | Gemini Live | Gemini 3.5 Live Translate 或原文转写 | Gemini 3.5 Live Translate 显示原文和译文；Gemini 3.5 Transcribe Live 仅显示自动检测口语后的原文字幕。两种模式都需要用户提供 Gemini API key。 |
+| Meta Scribe | 带说话人标签的多语言字幕 | 使用 Muse Voice Transcribe 进行带说话人标签和 25 种语言语码转换的实时转写，再交给 AirTranslate 现有翻译层。需要 Meta API key。 |
 | 仅转写 | 只需要原文字幕 | 不运行翻译，只保留原文记录。 |
 | LIVE 翻译 | 需要模型直接生成译文流 | 使用所选 API 提供方的实时翻译模型直接生成翻译结果。 |
 
-GPT/Gemini 模型细节、API key 输入、记录修正和语音输出都在齿轮设置弹窗中管理。主侧边栏只保留最常用的选择。
+GPT、Gemini 和 Meta 模型细节、API key 输入、记录修正和语音输出都在齿轮设置窗口中管理。日常采集控制位于 Stage 下方的浮动控制台。
 
 ## 隐私与 API key
 
@@ -151,11 +164,12 @@ AirTranslate 不包含账户系统，也没有开发者运营的中继或后端�
 - Apple 默认模式使用 macOS 框架和 Apple 语言资源。
 - 仅在启用 GPT 模式或可选 GPT 转写模式时，所需音频或文本才会使用用户的 OpenAI API key 直接发送到 OpenAI API。
 - 仅在启用 Gemini Live Translate 或 Gemini 3.5 Transcribe Live 时，所需音频才会使用用户的 Gemini API key 直接发送到 Google Gemini API。
-- OpenAI 和 Gemini API key 由用户提供并存储在 Keychain 中，绝不会硬编码、提交或包含在发布包中。
+- 仅在启用 Meta Scribe 时，所需音频才会使用用户的 Meta API key 直接发送到 Meta 的 Muse Voice Transcribe API。
+- OpenAI、Gemini 和 Meta API key 由用户提供并存储在 Keychain 中，绝不会硬编码、提交或包含在发布包中。
 - API key 使用 `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` 保存到 macOS Keychain。
 - 已保存记录是用户 Mac 上的纯文本文件。
 
-需要 API key 时，请打开 [OpenAI API key 页面](https://platform.openai.com/api-keys) 或 [Google AI Studio API key 页面](https://aistudio.google.com/app/apikey)，创建 key 后粘贴到 AirTranslate 设置弹窗。
+需要 API key 时，请打开 [OpenAI API key 页面](https://platform.openai.com/api-keys)、[Google AI Studio API key 页面](https://aistudio.google.com/app/apikey) 或 [Meta 开发者门户](https://dev.meta.ai)，创建 key 后粘贴到 AirTranslate 设置窗口。
 
 ## Apple 翻译语言包
 
@@ -184,14 +198,14 @@ AirTranslate 只请求捕获和转写流程需要的权限。
 
 首次请求后，如果当前应用仍无法使用权限，请前往**系统设置 > 隐私与安全性 > 屏幕与系统音频录制**确认当前安装版本，然后退出并重新启动应用。通常无需重置 `tccutil`。公开 ad-hoc 签名构建不保证更新间的 TCC 权限继承，因此可能需要重新确认新安装的版本。
 
-如果权限正确但 Gemini Live“开始”此前仍像是卡住，请在**设置 > 关于**中确认版本为 1.6.2。此版本会阻止隐藏设置中的分段控件在启动时进入 AppKit 焦点导航/AttributeGraph 循环。
+如果权限正确但 Gemini Live“开始”此前仍像是卡住，请在**设置 > 关于**中确认版本为 1.7.0 或更高。自 1.6.2 起，隐藏设置中的分段控件不会在启动时进入 AppKit 焦点导航/AttributeGraph 循环。
 
 ## 下载
 
 最新开源构建可在 [GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest) 下载。DMG 是最简单的安装路径，ZIP 也会继续作为轻量压缩包提供。
 
 - [下载 AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [下载 AirTranslate-1.6.2.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.2/AirTranslate-1.6.2.zip)
+- [下载 AirTranslate-1.7.0.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.7.0/AirTranslate-1.7.0.zip)
 - [下载 AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [查看版本历史](Release/VERSION-HISTORY.md)
 
@@ -216,6 +230,7 @@ cat AirTranslate.dmg.sha256
 - 可使用 Apple Speech 和 Apple Translation 框架的环境
 - 可选: GPT 模式或 GPT 转写需要 OpenAI API key
 - 可选: Gemini Live 模式需要 Gemini API key
+- 可选: Meta Scribe 模式需要 Meta API key
 
 ## 从源码构建
 
@@ -254,8 +269,8 @@ swift test
 
 1. 选择原文语言和译文语言。
 2. 如需反向翻译，点击中间的语言交换按钮。
-3. 选择 Apple 默认模式、GPT 模式或 Gemini Live。
-4. 如果 API 模式提示需要 key，请在设置弹窗中输入 OpenAI 或 Gemini API key。
+3. 在控制台中选择 Apple 默认模式、GPT 模式、Gemini Live 或 Meta Scribe。
+4. 如果 API 模式提示需要 key，请在设置窗口中输入 OpenAI、Gemini 或 Meta API key。
 5. 点击开始。
 6. 在 Mac 上播放会议、课程、视频、采访或直播音频。
 7. 在主工作区或悬浮字幕窗口查看原文和译文。

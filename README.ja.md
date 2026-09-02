@@ -31,7 +31,7 @@ AirTranslateは、Macで再生されている音声をリアルタイムで文�
 
 ユーザー向けの概要、セットアップガイド、ダウンロード導線は[AirTranslate公式ガイドサイト](https://himomohi.github.io/AirTranslate/)で確認できます。
 
-デフォルトの処理フローはAppleフレームワークを使用します。GPT RealtimeとGemini Live Translateは任意のAPIベースモードで、対応するAPIキーを入力した場合のみ利用できます。
+デフォルトの処理フローはAppleフレームワークを使用します。GPT Realtime、Gemini Live Translate、Meta Scribeは任意のAPIベースモードで、対応するAPIキーを入力した場合のみ利用できます。
 
 ## AirTranslateを使う理由
 
@@ -39,13 +39,24 @@ AirTranslateは、Macで再生されている音声をリアルタイムで文�
 - **読みやすいライブ画面:** 原文と翻訳を並べて表示します。
 - **フローティング字幕:** 他のアプリの上に字幕を表示できます。
 - **Appleがデフォルト:** Apple SpeechとApple Translationを基本経路にします。
-- **任意のAPIモード:** 必要なときだけOpenAI Realtime TranslationまたはGemini Live Translateを有効にします。
-- **Keychain保存:** OpenAIとGeminiのAPIキーはユーザーが入力し、macOS Keychainに保存します。
+- **任意のAPIモード:** 必要なときだけOpenAI Realtime Translation、Gemini Live Translate、またはMeta Scribeを有効にします。
+- **Keychain保存:** OpenAI、Gemini、MetaのAPIキーはユーザーが入力し、macOS Keychainに保存します。
 - **プレーンテキスト履歴:** 保存済み記録はMac内の通常の`.txt`ファイルです。
 
 ![AirTranslate demo](docs/assets/airtranslate-readme-demo.gif)
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
+
+## 1.7.0の主な変更点
+
+- **Meta Scribe:** 任意のMuse Voice Transcribeが、話者ラベルと25言語のコードスイッチングによるリアルタイム文字起こしを既存の翻訳レイヤーの前に追加します。設定でMeta APIキーを入力し、Apple標準モードは引き続きローカル優先のデフォルトです。
+- **Stage & Console:** 設定サイドバーを廃止し、ターン単位の字幕ブロックがウィンドウを埋め、最新ターンは開始/停止・音声ソース・言語経路・出力・音声・エンジンを持つ下部コンソールの直上に固定されます。
+- **共有Air tealデザインシステム:** 聴取中/一時停止/停止の色、レイヤー表面、字幕タイポグラフィがメイン画面・設定・記録ライブラリ・フローティング字幕・メニューバーにライト/ダーク双方で適用されます。
+- **キーボードのフォーカスリング:** カスタムコントロールはアクセント色のフォーカスリングを使い、開始ボタンが初期フォーカスを受け、セッションロック中のコントロールは1つのロック表示で暗くなりつつ支援技術へ完全に説明されます。
+- **Apple標準モードの長時間ロールオーバー:** 確定文字が約600字になるか長い無音があるとライブ行を新しいターンブロックへロールオーバーし、認識更新のたびに全文をメインスレッドで再処理しません。保存済み記録にはセッション全体が残ります。
+- **ステージの空白防止:** フィードは最新12個のターンブロックだけを通常スタックで描画し、長時間セッションや停止/開始後に字幕が消える問題を修正して描画コストを一定に保ちます。
+
+詳細は[AirTranslate 1.7.0リリースノート](https://github.com/himomohi/AirTranslate/releases/tag/v1.7.0)をご覧ください。
 
 ## 1.6.2の主な変更点
 
@@ -119,6 +130,7 @@ AirTranslateは、Macで再生されている音声をリアルタイムで文�
 - OpenAI Realtime TranslationによるGPTモード
 - 原文字幕用の任意の`gpt-live-transcribe` GPT文字起こしモード
 - Gemini 3.5 Live Translateモードと、話し言葉を自動検出する原文専用の任意Gemini 3.5 Transcribe Liveモード
+- 話者ラベル付き25言語字幕を既存の翻訳レイヤーの前に置く任意のMeta Scribeモード
 - APIベースの翻訳ストリーム用LIVE翻訳モード
 - Apple標準モードの元言語自動検出は、言語切替の安定性改善のため一時的に無効化
 - マイク入力の安定性改善（重複入力と切替時ノイズの抑制）
@@ -139,10 +151,11 @@ AirTranslateは、すばやい選択と詳細設定を分けています。
 | GPTモード | OpenAI Realtimeのライブ翻訳 | 音声をOpenAI Realtime Translationへ直接ストリーミングします。APIキーが保存されていない場合、設定モーダルを開いてAPIキー入力欄にフォーカスします。 |
 | GPT文字起こし | OpenAIの原文字幕 | 任意モードでOpenAI APIキーを指定すると、`gpt-live-transcribe`で翻訳なしの原文字幕を作成します。 |
 | Gemini Live | Gemini 3.5 Live Translateまたは原文文字起こし | Gemini 3.5 Live Translateでは原文と翻訳を表示し、Gemini 3.5 Transcribe Liveでは話し言葉を自動検出した原文字幕だけを表示します。どちらもユーザー提供のGemini APIキーが必要です。 |
+| Meta Scribe | 話者ラベル付きの多言語字幕 | Muse Voice Transcribeで話者ラベルと25言語のコードスイッチングによるリアルタイム文字起こしを行い、その後AirTranslateの既存翻訳レイヤーを使います。Meta APIキーが必要です。 |
 | 文字起こしのみ | 翻訳なしの原文字幕 | 翻訳を実行せず、原文の記録だけを残します。 |
 | LIVE翻訳 | 翻訳ストリームを直接得たい場合 | 選択したAPIプロバイダーのライブ翻訳モデルが翻訳結果を直接生成する経路を使います。 |
 
-GPT/Geminiモデルの詳細、APIキー入力、記録補正、音声出力は歯車の設定モーダルで管理します。メインサイドバーには重要な選択だけを残しています。
+GPT、Gemini、Metaモデルの詳細、APIキー入力、記録補正、音声出力は歯車の設定ウィンドウで管理します。日常のキャプチャ操作はStage下のフローティングコンソールバーにあります。
 
 ## プライバシーとAPIキー
 
@@ -151,11 +164,12 @@ AirTranslateにはアカウントシステムや開発者運用の中継・バ�
 - Apple標準モードはmacOSフレームワークとApple言語アセットを使用します。
 - GPTモードまたは任意のGPT文字起こしモードを有効にした場合のみ、必要な音声またはテキストがユーザーのOpenAI APIキーでOpenAI APIへ直接送信されます。
 - Gemini Live TranslateまたはGemini 3.5 Transcribe Liveを有効にした場合のみ、必要な音声がユーザーのGemini APIキーでGoogle Gemini APIへ直接送信されます。
-- OpenAIとGeminiのAPIキーはユーザーが提供してKeychainに保存し、アプリに埋め込まず、コミットせず、リリースパッケージにも含めません。
+- Meta Scribeを有効にした場合のみ、必要な音声がユーザーのMeta APIキーでMetaのMuse Voice Transcribe APIへ直接送信されます。
+- OpenAI、Gemini、MetaのAPIキーはユーザーが提供してKeychainに保存し、アプリに埋め込まず、コミットせず、リリースパッケージにも含めません。
 - APIキーは`kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`でmacOS Keychainに保存します。
 - 保存済み記録はユーザーのMac上のプレーンテキストファイルです。
 
-APIキーが必要な場合は、[OpenAI APIキーページ](https://platform.openai.com/api-keys)または[Google AI Studio APIキーページ](https://aistudio.google.com/app/apikey)でキーを作成し、AirTranslateの設定モーダルに貼り付けてください。
+APIキーが必要な場合は、[OpenAI APIキーページ](https://platform.openai.com/api-keys)、[Google AI Studio APIキーページ](https://aistudio.google.com/app/apikey)、または[Meta開発者ポータル](https://dev.meta.ai)でキーを作成し、AirTranslateの設定ウィンドウに貼り付けてください。
 
 ## Apple翻訳言語パック
 
@@ -184,14 +198,14 @@ ScreenCaptureKitのシステム音声キャプチャ経路を使うため、画�
 
 最初の要求後も現在のアプリで権限を利用できない場合は、**システム設定 > プライバシーとセキュリティ > 画面収録とシステムオーディオ録音**で現在のインストールを確認し、アプリを終了して再起動してください。通常の`tccutil`リセットは不要です。公開ad-hoc署名ビルドは更新間のTCC権限継承を保証しないため、新しいインストールを再確認する場合があります。
 
-権限が正しいのにGemini Liveの開始が止まったように見えていた場合は、**設定 > 情報**で1.6.2であることを確認してください。このバージョンでは、開始中に非表示の設定セグメント操作がAppKitのフォーカス移動/AttributeGraphループへ入ることを防ぎます。
+権限が正しいのにGemini Liveの開始が止まったように見えていた場合は、**設定 > 情報**で1.7.0以降であることを確認してください。1.6.2以降では、開始中に非表示の設定セグメント操作がAppKitのフォーカス移動/AttributeGraphループへ入ることを防ぎます。
 
 ## ダウンロード
 
 最新のオープンソースビルドは[GitHub Releases](https://github.com/himomohi/AirTranslate/releases/latest)からダウンロードできます。DMGが最も簡単なインストール方法で、ZIPも軽量な配布形式として引き続き利用できます。
 
 - [AirTranslate.dmgをダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [AirTranslate-1.6.2.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.6.2/AirTranslate-1.6.2.zip)
+- [AirTranslate-1.7.0.zipをダウンロード](https://github.com/himomohi/AirTranslate/releases/download/v1.7.0/AirTranslate-1.7.0.zip)
 - [AirTranslate.dmg.sha256をダウンロード](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [バージョン履歴を見る](Release/VERSION-HISTORY.md)
 
@@ -216,6 +230,7 @@ cat AirTranslate.dmg.sha256
 - Apple SpeechとApple Translationフレームワークが利用できる環境
 - 任意: GPTモード用のOpenAI APIキー
 - 任意: Gemini Liveモード用のGemini APIキー
+- 任意: Meta Scribeモード用のMeta APIキー
 
 ## ソースからビルド
 
@@ -254,8 +269,8 @@ swift test
 
 1. 原文言語と翻訳言語を選びます。
 2. 方向を逆にしたい場合は中央の言語入れ替えボタンを押します。
-3. Apple標準モード、GPTモード、またはGemini Liveを選びます。
-4. APIベースモードで案内が出たら、設定モーダルにOpenAIまたはGemini APIキーを入力します。
+3. コンソールバーでApple標準モード、GPTモード、Gemini Live、またはMeta Scribeを選びます。
+4. APIベースモードで案内が出たら、設定ウィンドウにOpenAI、Gemini、またはMeta APIキーを入力します。
 5. 開始ボタンを押します。
 6. Macで会議、講義、動画、インタビュー、配信音声を再生します。
 7. メイン画面またはフローティング字幕で原文と翻訳を確認します。

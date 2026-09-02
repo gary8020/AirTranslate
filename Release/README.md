@@ -21,7 +21,7 @@ This folder contains reproducible release materials for the Apache 2.0 open-sour
 Override the defaults when needed:
 
 ```bash
-BUNDLE_ID="com.example.AirTranslate" VERSION="1.6.2" BUILD_NUMBER="162"
+BUNDLE_ID="com.example.AirTranslate" VERSION="1.7.0" BUILD_NUMBER="170"
 ```
 
 ## Local Release Build
@@ -58,12 +58,12 @@ Release/product/AirTranslate-<version>.dmg.sha256
 
 `Release/product/` is generated output and should stay out of commits.
 
-## 1.6.2 Permission Release Notes
+## 1.7.0 Stage, Meta Scribe, And Long-Session Notes
 
-- Screen Recording access is requested only on the first attempt that needs it. Later failures must direct users to macOS Privacy & Security settings rather than reopening the system request.
-- Release guidance must tell users to remove or archive older and differently signed AirTranslate copies that share `dev.appcaster.AirTranslate`, keep one intended installation, and verify that exact version before diagnosing TCC state.
-- The public DMG and ZIP are ad-hoc signed. TCC permission inheritance across updates is not guaranteed, so a newly installed build may need to be confirmed in System Settings.
-- The hidden Settings Scene must not change a segmented `Picker` to disabled during capture startup. That AppKit focus-navigation/AttributeGraph path can consume CPU and block the top Gemini Live Start flow even though the Settings window is not visible.
+- Public docs must describe Meta Scribe as optional Muse Voice Transcribe that sends audio only after the user enables it and provides a Meta API key.
+- The main window is Stage & Console: turn-based caption blocks plus a floating console bar. Do not describe a settings sidebar as the live control surface.
+- Apple Mode long-session copy must say the live line rolls over into a new turn block after roughly 600 committed characters or a long silence, and that saved transcripts still contain the full session.
+- Stage rendering is bounded to the 12 most recent turn blocks so the feed cannot go blank after a long session or stop/start.
 
 ## Secret Safety Gate
 
@@ -89,6 +89,7 @@ git diff -- . ':(exclude).build/**' ':(exclude)Release/product/**' | \
 - Confirm the release ZIP does not contain API keys, tokens, private keys, provisioning profiles, or `.env` files.
 - Confirm OpenAI GPT mode still requires a user-provided key at runtime and does not bundle one.
 - Confirm Gemini Live mode still requires a user-provided key at runtime and does not bundle one.
+- Confirm Meta Scribe mode still requires a user-provided key at runtime and does not bundle one.
 - Confirm `Release/product/` remains ignored.
-- Confirm all four public READMEs and `GITHUB-RELEASE-1.6.2.md` describe both public themes with equivalent meaning: the one-request/single-installation/ad-hoc TCC boundary, and removal of the hidden Settings segmented focus loop so Gemini Live Start proceeds.
+- Confirm all four public READMEs and `GITHUB-RELEASE-1.7.0.md` describe all six public themes with equivalent meaning: Meta Scribe, Stage & Console, Air teal design system, focus ring, Apple Mode live-line rollover, and the 12-block Stage render window.
 - Publish the new GitHub Release without deleting previous release versions or tags.

@@ -4,6 +4,8 @@ All notable changes to AirTranslate are documented in this file.
 
 ## [Unreleased]
 
+## 1.7.0 - 2026-09-02
+
 ### Added
 
 - Meta Scribe mode powered by Muse Voice Transcribe adds realtime transcription, speaker labels, and 25-language code-switching before AirTranslate's existing translation layer.

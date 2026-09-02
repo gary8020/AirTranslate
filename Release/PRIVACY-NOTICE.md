@@ -2,7 +2,7 @@
 
 AirTranslate transcribes and translates audio playing on the user's Mac.
 
-AirTranslate is an independent open-source project and is not affiliated with Apple, OpenAI, or Google.
+AirTranslate is an independent open-source project and is not affiliated with Apple, OpenAI, Google, or Meta.
 
 ## Data Handling
 
@@ -34,6 +34,14 @@ Gemini Live Translate and Gemini 3.5 Transcribe Live are optional and work only 
 When either Gemini mode is enabled, AirTranslate sends the audio needed for the selected live translation or source-only transcription feature directly to the Google Gemini API. Gemini 3.5 Transcribe Live automatically detects the spoken language and returns source captions rather than translations.
 
 Gemini API keys are user-provided runtime data. AirTranslate stores them in macOS Keychain and does not include API keys in the source tree, release scripts, or generated release bundles.
+
+## Optional Meta Scribe Mode
+
+Meta Scribe is optional and works only after the user provides a Meta API key.
+
+When Meta Scribe is enabled, AirTranslate sends the audio needed for Muse Voice Transcribe realtime transcription, speaker labels, and 25-language code-switching directly to Meta's API, then applies AirTranslate's existing translation layer locally or through the separately selected translation path.
+
+Meta API keys are user-provided runtime data. AirTranslate stores them in macOS Keychain and does not include API keys in the source tree, release scripts, or generated release bundles.
 
 ## Permissions
 

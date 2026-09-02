@@ -1,5 +1,22 @@
 # AirTranslate Version History
 
+## 1.7.0 - 2026-09-02
+
+### Added
+
+- Optional Meta Scribe mode powered by Muse Voice Transcribe adds realtime transcription, speaker labels, and 25-language code-switching before AirTranslate's existing translation layer. A user-provided Meta API key is required; Apple Mode remains the local-first default.
+
+### Changed
+
+- The main window is now a Stage & Console layout: live captions fill the window as turn-based blocks, and a floating console bar holds Start/Stop, audio source, language route, output mode, voice output, and the active engine. The settings sidebar is gone.
+- A shared Air teal design system covers listening/paused/stopped colors, layered surfaces, and caption typography across the main window, Settings, transcript library, floating captions, and menu bar.
+- Custom controls use an accent-colored focus ring, Start receives initial focus, and session-locked controls stay dimmed with a single lock indicator.
+
+### Fixed
+
+- Apple Mode no longer accumulates the entire session into one caption line. It rolls the live line into a new turn block after roughly 600 committed characters or a long silence, and late final results that revise a rolled sentence merge instead of duplicating. Saved transcripts still contain the full session.
+- The Stage no longer goes blank after a long session or a stop/start cycle. The feed renders the 12 most recent turn blocks with a plain stack so rendering cost stays constant.
+
 ## 1.6.2 - 2026-08-27
 
 ### Fixed

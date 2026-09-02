@@ -31,7 +31,7 @@ AirTranslate captures audio playing on your Mac, turns it into a live transcript
 
 For a user-facing overview, setup guide, and download path, visit the [AirTranslate Guide Site](https://himomohi.github.io/AirTranslate/).
 
-The default workflow uses Apple frameworks. GPT Realtime and Gemini Live Translate are optional API-backed modes and can be enabled from the app only after you provide the matching API key.
+The default workflow uses Apple frameworks. GPT Realtime, Gemini Live Translate, and Meta Scribe are optional API-backed modes and can be enabled from the app only after you provide the matching API key.
 
 ## Why AirTranslate
 
@@ -39,13 +39,24 @@ The default workflow uses Apple frameworks. GPT Realtime and Gemini Live Transla
 - **Readable live workspace:** source and translated text stay side by side.
 - **Floating captions:** keep subtitles above other apps while you watch or listen.
 - **Apple by default:** Apple Speech and Apple Translation remain the baseline path.
-- **Optional API modes:** OpenAI Realtime Translation and Gemini Live Translate can be enabled only when needed.
-- **Keychain storage:** OpenAI and Gemini API keys are entered by the user and stored in macOS Keychain.
+- **Optional API modes:** OpenAI Realtime Translation, Gemini Live Translate, and Meta Scribe can be enabled only when needed.
+- **Keychain storage:** OpenAI, Gemini, and Meta API keys are entered by the user and stored in macOS Keychain.
 - **Plain text history:** saved transcripts remain normal `.txt` files in Application Support.
 
 ![AirTranslate demo](docs/assets/airtranslate-readme-demo.gif)
 
 > "Turn any Mac audio into live captions and translation, right where you are watching."
+
+## What's New in 1.7.0
+
+- **Meta Scribe:** Optional Muse Voice Transcribe adds realtime transcription, speaker labels, and 25-language code-switching before AirTranslate's existing translation layer. Provide a Meta API key from Settings; Apple Mode stays the local-first default.
+- **Stage & Console:** The settings sidebar is gone. Live captions fill the window as turn-based blocks, with the newest turn just above a floating console bar for Start/Stop, audio source, language route, output mode, voice, and the active engine.
+- **Shared Air teal design system:** Listening, paused, and stopped colors, layered surfaces, and a caption typography scale now apply across the main window, Settings, transcript library, floating captions, and menu bar in light and dark appearance.
+- **Keyboard focus ring:** Custom controls use an accent-colored focus ring, Start receives initial focus, and session-locked controls stay dimmed with a single lock indicator while remaining fully described to assistive technologies.
+- **Apple Mode stays fast on long sessions:** Apple Mode now rolls the live line into a new turn block after roughly 600 committed characters or a long silence, so recognition updates no longer reprocess the entire transcript on the main thread. Saved transcripts still contain the full session.
+- **Stage no longer goes blank:** The feed renders the 12 most recent turn blocks with a plain stack, which fixes disappearing captions after a long session or stop/start and keeps rendering cost constant.
+
+See the complete [AirTranslate 1.7.0 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.7.0).
 
 ## What's New in 1.6.2
 
@@ -120,6 +131,7 @@ See the complete [AirTranslate 1.4.1 release notes](https://github.com/himomohi/
 - GPT mode with OpenAI Realtime Translation
 - Optional GPT Transcription with `gpt-live-transcribe` for source-only captions
 - Gemini 3.5 Live Translate mode and optional Gemini 3.5 Transcribe Live source-only mode with automatic spoken-language detection
+- Optional Meta Scribe mode with Muse Voice Transcribe for speaker-labeled, 25-language captions before AirTranslate translation
 - Microphone input stability fixes for duplicate segments and noisy transitions
 - LIVE Translation mode for API-backed translated streams
 - One-click source/target language swap
@@ -139,10 +151,11 @@ AirTranslate separates the quick choice from the detailed setup.
 | GPT Mode | OpenAI Realtime live translation | Streams audio directly to OpenAI Realtime Translation. If no API key is saved, AirTranslate opens the settings modal and focuses the API key field. |
 | GPT Transcription | OpenAI source-only captions | Uses `gpt-live-transcribe` for source-language captions without translation after you choose this optional mode and provide an OpenAI API key. |
 | Gemini Live | Gemini 3.5 Live Translate or source-only transcription | Choose Gemini 3.5 Live Translate for returned input and translated transcripts, or Gemini 3.5 Transcribe Live for original-only captions with automatic spoken-language detection. Both require your Gemini API key. |
+| Meta Scribe | Speaker-labeled multilingual captions | Uses Muse Voice Transcribe for realtime transcription with speaker labels and 25-language code-switching, then AirTranslate's existing translation layer. Requires your Meta API key. |
 | Transcribe Only | Source captions without translation | Records source-language captions without running translation. |
 | LIVE Translation | Direct translated stream | Uses the selected API provider's live translation model path when you want the model to produce the translated stream directly. |
 
-GPT/Gemini model details, API key entry, transcript polish, and voice output are managed from the gear-shaped settings modal. The main sidebar only exposes the most important choices.
+GPT, Gemini, and Meta model details, API key entry, transcript polish, and voice output are managed from the gear-shaped Settings window. Everyday capture controls live in the floating console bar under the Stage.
 
 ## Privacy And API Keys
 
@@ -151,11 +164,12 @@ AirTranslate does not ship with an account system or a developer-operated relay/
 - Apple Mode uses macOS frameworks and locally managed Apple language assets.
 - OpenAI sends happen only when GPT Mode or the optional GPT Transcription mode is enabled; the required audio or text goes directly to OpenAI's API using your OpenAI API key.
 - Gemini sends happen only when Gemini Live Translate or Gemini 3.5 Transcribe Live is enabled; the required audio goes directly to the Google Gemini API using your Gemini API key.
-- OpenAI and Gemini API keys are user-provided, saved in Keychain, and never hardcoded, committed, or included in release packages.
+- Meta Scribe sends happen only when Meta Scribe is enabled; the required audio goes directly to Meta's Muse Voice Transcribe API using your Meta API key.
+- OpenAI, Gemini, and Meta API keys are user-provided, saved in Keychain, and never hardcoded, committed, or included in release packages.
 - Keys are saved in macOS Keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly`.
 - Saved transcripts are plain text files on your Mac.
 
-Need an API key? Open the [OpenAI API key page](https://platform.openai.com/api-keys) or [Google AI Studio API key page](https://aistudio.google.com/app/apikey), create a key, then paste it into AirTranslate's settings modal.
+Need an API key? Open the [OpenAI API key page](https://platform.openai.com/api-keys), [Google AI Studio API key page](https://aistudio.google.com/app/apikey), or [Meta developer portal](https://dev.meta.ai), create a key, then paste it into AirTranslate's Settings window.
 
 ## Apple Translation Language Packs
 
@@ -184,7 +198,7 @@ Before troubleshooting, remove or archive older AirTranslate copies from Applica
 
 If the current app is still unavailable after the first request, open **System Settings > Privacy & Security > Screen & System Audio Recording**, confirm the current installation, then quit and relaunch. Routine `tccutil` resets are not needed. Public ad-hoc signed builds do not guarantee TCC permission inheritance between updates, so a newly installed build may need to be confirmed again.
 
-If Gemini Live Start previously appeared stuck despite correct permissions, verify that **Settings > About** shows 1.6.2. This release prevents the hidden Settings segmented control from entering the AppKit focus-navigation/AttributeGraph loop during startup.
+If Gemini Live Start previously appeared stuck despite correct permissions, verify that **Settings > About** shows 1.7.0 or later. Releases from 1.6.2 onward prevent the hidden Settings segmented control from entering the AppKit focus-navigation/AttributeGraph loop during startup.
 
 ## Download
 
@@ -193,7 +207,7 @@ Download the latest open-source build from [GitHub Releases](https://github.com/
 AirTranslate remains fully open-source under the Apache-2.0 License. The DMG is provided only as a convenient macOS installer, while all source code, build scripts, release materials, LICENSE, and NOTICE files remain available in this repository.
 
 - [Download AirTranslate.dmg](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg)
-- [Download AirTranslate-1.6.2.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.6.2/AirTranslate-1.6.2.zip)
+- [Download AirTranslate-1.7.0.zip](https://github.com/himomohi/AirTranslate/releases/download/v1.7.0/AirTranslate-1.7.0.zip)
 - [Download AirTranslate.dmg.sha256](https://github.com/himomohi/AirTranslate/releases/latest/download/AirTranslate.dmg.sha256)
 - [View version history](Release/VERSION-HISTORY.md)
 
@@ -222,6 +236,7 @@ Developer ID signing and notarization are planned for a later distribution step.
 - Apple Speech and Apple Translation framework availability
 - Optional: an OpenAI API key for GPT mode
 - Optional: a Gemini API key for Gemini Live mode
+- Optional: a Meta API key for Meta Scribe mode
 
 ## Build From Source
 
@@ -260,8 +275,8 @@ swift test
 
 1. Choose the source and target languages.
 2. Use the center swap button if you want to reverse the direction.
-3. Choose Apple Mode, GPT Mode, or Gemini Live.
-4. For API-backed modes, add the matching OpenAI or Gemini API key in the settings modal if prompted.
+3. Choose Apple Mode, GPT Mode, Gemini Live, or Meta Scribe from the console bar.
+4. For API-backed modes, add the matching OpenAI, Gemini, or Meta API key in Settings if prompted.
 5. Press Start.
 6. Play meeting, lecture, video, interview, or stream audio on your Mac.
 7. Read the transcript and translation in the main workspace or floating caption window.
