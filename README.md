@@ -253,17 +253,20 @@ Developer ID signing and notarization are planned for a later distribution step.
 On an Apple Silicon Mac running macOS 26 or later, run this single command:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gary8020/AirTranslate/distribution/cross-mac-installer/script/install_on_this_mac.sh)"
+/bin/bash -o pipefail -c 'curl -fL https://raw.githubusercontent.com/gary8020/AirTranslate/distribution/cross-mac-installer/script/install_on_this_mac.sh | /bin/bash -s -- install'
 ```
 
-The installer downloads this branch, builds AirTranslate locally, verifies the
-app bundle, installs it to `~/Applications/AirTranslate.app`, and opens it. It
-does not copy API keys, transcripts, or settings from another Mac. Each Mac
-must grant its own Microphone and Speech Recognition permissions and download
-any required Apple language assets.
+The installer downloads this branch, creates a release build locally, checks
+the app bundle's code-signature integrity, installs it to
+`~/Applications/AirTranslate.app`, and opens it. It does not copy API keys,
+transcripts, or settings from another Mac. Each Mac must grant its own
+Microphone and Speech Recognition permissions and download any required Apple
+language assets. macOS may ask for those permissions again after an update if
+the Mac does not have a persistent code-signing identity.
 
-Re-running the command updates the source and preserves the previous app as a
-timestamped backup before installing the new build.
+Re-running the command updates the source and preserves one previous app at
+`~/Library/Application Support/AirTranslate Custom Build/backups/AirTranslate-previous.app`
+before installing the new build.
 
 Run the app bundle:
 
