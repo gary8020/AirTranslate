@@ -26,7 +26,13 @@ esac
 
 cd "$ROOT_DIR"
 
-pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+case "$MODE" in
+  --build-only|build-only)
+    ;;
+  *)
+    pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+    ;;
+esac
 
 swift build
 BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
@@ -78,6 +84,9 @@ verify_running_app() {
 }
 
 case "$MODE" in
+  --build-only|build-only)
+    echo "Built $APP_BUNDLE"
+    ;;
   --reset-permissions|reset-permissions)
     /usr/bin/defaults delete "$BUNDLE_ID" "AirTranslate.screenRecordingAccessRequestAttempted" >/dev/null 2>&1 || true
     /usr/bin/tccutil reset ScreenCapture "$BUNDLE_ID" || true
@@ -106,7 +115,7 @@ case "$MODE" in
     verify_running_app
     ;;
   *)
-    echo "usage: $0 [run|--debug|--logs|--telemetry|--verify|--reset-permissions]" >&2
+    echo "usage: $0 [run|--build-only|--debug|--logs|--telemetry|--verify|--reset-permissions]" >&2
     exit 2
     ;;
 esac

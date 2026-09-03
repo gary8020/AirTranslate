@@ -248,6 +248,23 @@ Developer ID signing and notarization are planned for a later distribution step.
 
 ## Build From Source
 
+### Install the privacy-fixed custom build on another Mac
+
+On an Apple Silicon Mac running macOS 26 or later, run this single command:
+
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/gary8020/AirTranslate/distribution/cross-mac-installer/script/install_on_this_mac.sh)"
+```
+
+The installer downloads this branch, builds AirTranslate locally, verifies the
+app bundle, installs it to `~/Applications/AirTranslate.app`, and opens it. It
+does not copy API keys, transcripts, or settings from another Mac. Each Mac
+must grant its own Microphone and Speech Recognition permissions and download
+any required Apple language assets.
+
+Re-running the command updates the source and preserves the previous app as a
+timestamped backup before installing the new build.
+
 Run the app bundle:
 
 ```bash
