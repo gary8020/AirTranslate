@@ -17,10 +17,14 @@ INFO_PLIST="$APP_CONTENTS/Info.plist"
 ENTITLEMENTS_PATH="$ROOT_DIR/Resources/AirTranslate.entitlements"
 DEBUG_ENTITLEMENTS_PATH="$ROOT_DIR/Resources/AirTranslate.debug.entitlements"
 CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:-}"
+BUILD_CONFIGURATION="debug"
 
 case "$MODE" in
   --debug|debug)
     ENTITLEMENTS_PATH="$DEBUG_ENTITLEMENTS_PATH"
+    ;;
+  --build-only|build-only)
+    BUILD_CONFIGURATION="release"
     ;;
 esac
 
@@ -34,8 +38,8 @@ case "$MODE" in
     ;;
 esac
 
-swift build
-BUILD_BINARY="$(swift build --show-bin-path)/$APP_NAME"
+swift build --configuration "$BUILD_CONFIGURATION"
+BUILD_BINARY="$(swift build --configuration "$BUILD_CONFIGURATION" --show-bin-path)/$APP_NAME"
 
 rm -rf "$APP_BUNDLE"
 mkdir -p "$APP_MACOS"

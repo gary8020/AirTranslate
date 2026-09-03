@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build Gary's privacy-fixed AirTranslate branch locally and install it for the
+# Build the privacy-fixed AirTranslate branch locally and install it for the
 # current macOS user. No API keys or saved application data are copied.
 
 REPOSITORY_URL="${AIRTRANSLATE_REPOSITORY_URL:-https://github.com/gary8020/AirTranslate.git}"
 SOURCE_BRANCH="${AIRTRANSLATE_SOURCE_BRANCH:-distribution/cross-mac-installer}"
 SOURCE_DIR="${AIRTRANSLATE_SOURCE_DIR:-${HOME}/Library/Application Support/AirTranslate Custom Build/source}"
 INSTALL_DIR="${AIRTRANSLATE_INSTALL_DIR:-${HOME}/Applications}"
+BACKUP_DIR="${AIRTRANSLATE_BACKUP_DIR:-$(dirname "$SOURCE_DIR")/backups}"
 APP_NAME="AirTranslate"
 APP_SOURCE="$SOURCE_DIR/dist/$APP_NAME.app"
 APP_TARGET="$INSTALL_DIR/$APP_NAME.app"
+APP_BINARY="$APP_TARGET/Contents/MacOS/$APP_NAME"
+BACKUP_PATH="$BACKUP_DIR/$APP_NAME-previous.app"
+LOCK_DIR="$(dirname "$SOURCE_DIR")/.installer.lock"
 MODE="${1:-install}"
 STAGING_DIR=""
+LOCK_HELD="false"
+SWAP_COMPLETE="false"
+BACKUP_CREATED_THIS_RUN="false"
 
 fail() {
   echo "AirTranslate installer: $*" >&2
@@ -24,8 +31,14 @@ require_command() {
 }
 
 cleanup() {
+  if [[ "$BACKUP_CREATED_THIS_RUN" == "true" && "$SWAP_COMPLETE" != "true" && ! -e "$APP_TARGET" && -e "$BACKUP_PATH" ]]; then
+    mv "$BACKUP_PATH" "$APP_TARGET" || true
+  fi
   if [[ -n "$STAGING_DIR" && -d "$STAGING_DIR" ]]; then
     rm -rf -- "$STAGING_DIR"
+  fi
+  if [[ "$LOCK_HELD" == "true" ]]; then
+    rmdir "$LOCK_DIR" >/dev/null 2>&1 || true
   fi
 }
 
@@ -68,6 +81,12 @@ prepare_source() {
   fi
 }
 
+acquire_lock() {
+  mkdir -p "$(dirname "$SOURCE_DIR")"
+  mkdir "$LOCK_DIR" 2>/dev/null || fail "another AirTranslate install is already running"
+  LOCK_HELD="true"
+}
+
 install_app() {
   mkdir -p "$INSTALL_DIR"
 
@@ -82,16 +101,48 @@ install_app() {
   ditto "$APP_SOURCE" "$STAGING_DIR/$APP_NAME.app"
   codesign --verify --deep --strict "$STAGING_DIR/$APP_NAME.app"
 
+  pkill -x "$APP_NAME" >/dev/null 2>&1 || true
+  wait_for_process_to_stop
+
   if [[ -e "$APP_TARGET" ]]; then
-    local backup_path
-    backup_path="$INSTALL_DIR/$APP_NAME-backup-$(date +%Y%m%d-%H%M%S).app"
-    mv "$APP_TARGET" "$backup_path"
-    echo "Previous app preserved at $backup_path"
+    mkdir -p "$BACKUP_DIR"
+    rm -rf -- "$BACKUP_PATH"
+    mv "$APP_TARGET" "$BACKUP_PATH"
+    BACKUP_CREATED_THIS_RUN="true"
+    echo "Previous app preserved at $BACKUP_PATH"
   fi
 
   mv "$STAGING_DIR/$APP_NAME.app" "$APP_TARGET"
-  rmdir "$STAGING_DIR"
+  SWAP_COMPLETE="true"
+  rm -rf -- "$STAGING_DIR"
   STAGING_DIR=""
+}
+
+wait_for_process_to_stop() {
+  local attempt
+  for ((attempt = 0; attempt < 50; attempt++)); do
+    pgrep -x "$APP_NAME" >/dev/null 2>&1 || return 0
+    sleep 0.2
+  done
+  fail "$APP_NAME did not stop; close it and run the installer again"
+}
+
+open_and_verify_app() {
+  local attempt
+  local pid
+  local command
+
+  open "$APP_TARGET"
+  for ((attempt = 0; attempt < 50; attempt++)); do
+    pid="$(pgrep -n -x "$APP_NAME" || true)"
+    if [[ -n "$pid" ]]; then
+      command="$(ps -p "$pid" -o command=)"
+      [[ "$command" == "$APP_BINARY" ]] || fail "a different AirTranslate build is running: $command"
+      return 0
+    fi
+    sleep 0.2
+  done
+  fail "AirTranslate was installed but did not open"
 }
 
 check_mac
@@ -105,6 +156,7 @@ if [[ "$MODE" != "install" && "$MODE" != "--no-launch" && "$MODE" != "no-launch"
   fail "usage: $0 [install|--check|--no-launch]"
 fi
 
+acquire_lock
 prepare_source
 install_app
 
@@ -112,7 +164,7 @@ echo "Installed $APP_TARGET"
 echo "Source commit: $(git -C "$SOURCE_DIR" rev-parse HEAD)"
 
 if [[ "$MODE" == "install" ]]; then
-  pkill -x "$APP_NAME" >/dev/null 2>&1 || true
-  open "$APP_TARGET"
+  open_and_verify_app
   echo "AirTranslate opened. Approve Microphone and Speech Recognition if macOS asks."
+  echo "After an update, macOS may ask again if this Mac does not have a persistent signing identity."
 fi
