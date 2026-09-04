@@ -41,7 +41,7 @@ The default workflow uses Apple frameworks. GPT Realtime, Gemini Live Translate,
 - **Apple by default:** Apple Speech and Apple Translation remain the baseline path.
 - **Optional API modes:** OpenAI Realtime Translation, Gemini Live Translate, and Meta Scribe can be enabled only when needed.
 - **Keychain storage:** OpenAI, Gemini, and Meta API keys are entered by the user and stored in macOS Keychain.
-- **Plain text history:** saved transcripts remain normal `.txt` files in Application Support.
+- **Optional plain text history:** transcript files are off by default and can be enabled from Settings; saved transcripts remain normal `.txt` files in Application Support.
 
 ![AirTranslate demo](docs/assets/airtranslate-readme-demo.gif)
 
@@ -288,7 +288,7 @@ swift test
 5. Press Start.
 6. Play meeting, lecture, video, interview, or stream audio on your Mac.
 7. Read the transcript and translation in the main workspace or floating caption window.
-8. Press Stop to save the current transcript.
+8. If you enabled **Save Transcript Files** in Settings > Transcript, press Stop to save the current transcript.
 
 ## Saved Transcripts
 
@@ -297,6 +297,8 @@ Saved transcripts are stored as plain text files:
 ```text
 ~/Library/Application Support/AirTranslate/Transcripts/*.txt
 ```
+
+Transcript file saving is off by default. Enable **Save Transcript Files** in Settings > Transcript to opt in. When it is off, transcript text stays in memory for the session and Stop or app quit does not create a `.txt` file.
 
 When source and translation are saved together, AirTranslate writes separate `_original.txt` and `_translation.txt` files while presenting them as one grouped item in the library UI.
 

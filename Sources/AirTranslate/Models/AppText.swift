@@ -790,14 +790,26 @@ enum AppText {
         korean: "긴 세션 보호 모드를 사용합니다. 전체 텍스트 화면 갱신과 번역 폭주를 줄이고, 아주 긴 기록은 최근 부분만 렌더링합니다."
     )
     static let savedTranscripts = localized(english: "Saved Transcripts", korean: "저장된 기록", japanese: "保存済み記録", chineseSimplified: "已保存记录")
+    static let transcriptPersistence = localized(
+        english: "Save Transcript Files",
+        korean: "기록 파일 저장",
+        japanese: "記録ファイルを保存",
+        chineseSimplified: "保存记录文件"
+    )
+    static let transcriptPersistenceDescription = localized(
+        english: "When on, transcript text is saved as dated plain .txt files when capture stops or the app quits. When off, it stays in memory only.",
+        korean: "켜면 캡처 중지 또는 앱 종료 시 기록을 날짜가 붙은 일반 .txt 파일로 저장합니다. 끄면 메모리에만 유지됩니다.",
+        japanese: "オンにすると、キャプチャ停止時またはアプリ終了時に記録を日付付きのプレーンな .txt ファイルとして保存します。オフの場合はメモリ上だけに保持します。",
+        chineseSimplified: "开启后，停止采集或退出应用时会将记录保存为带日期的纯文本 .txt 文件。关闭后仅保留在内存中。"
+    )
     static let savedTranscriptContent = localized(
         english: "Saved Content",
         korean: "저장 내용"
     )
     static let autoSave = localized(english: "Auto-save", korean: "자동 저장")
     static let autoSaveDescription = localized(
-        english: "Transcript text is kept in memory while listening, then saved as a dated plain .txt file with a short content title when capture stops or the app quits.",
-        korean: "기록 중에는 메모리에 유지하고, 캡처 중지 또는 앱 종료 직전에 날짜와 짧은 내용 제목이 들어간 일반 .txt 파일로 저장됩니다."
+        english: "Choose which transcript text to save when transcript file saving is enabled.",
+        korean: "기록 파일 저장을 켰을 때 어떤 기록 텍스트를 저장할지 선택합니다."
     )
     static let openSaveFolder = localized(
         english: "Open Save Folder",
@@ -818,8 +830,8 @@ enum AppText {
         korean: "저장된 기록 확인, 수정, 삭제, 폴더 열기는 별도 관리 창에서 처리합니다."
     )
     static let savedEmpty = localized(
-        english: "Auto-saved transcripts will appear here.",
-        korean: "자동 저장된 기록이 여기에 표시됩니다."
+        english: "Saved transcript files will appear here when file saving is enabled.",
+        korean: "기록 파일 저장을 켜면 저장된 기록이 여기에 표시됩니다."
     )
     static let noSavedTranscriptSelected = localized(
         english: "Select a saved transcript.",

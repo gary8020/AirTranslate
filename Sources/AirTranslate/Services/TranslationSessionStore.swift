@@ -77,6 +77,7 @@ private enum SettingsKey {
     static let providerVoiceOutputEnabled = "providerVoiceOutputEnabled"
     static let translatedVoiceVolume = "translatedVoiceVolume"
     static let isTranscriptLintEnabled = "isTranscriptLintEnabled"
+    static let isTranscriptPersistenceEnabled = "isTranscriptPersistenceEnabled"
     static let floatingCaptionDisplayMode = "floatingCaptionDisplayMode"
     static let floatingCaptionTextSize = "floatingCaptionTextSize"
     static let floatingCaptionLineCount = "floatingCaptionLineCount"
@@ -555,6 +556,18 @@ final class TranslationSessionStore {
     var isTranscriptLintEnabled = false {
         didSet { persistSelectedSettings() }
     }
+    var isTranscriptPersistenceEnabled = false {
+        didSet {
+            persistSelectedSettings()
+            guard !isTranscriptPersistenceEnabled else { return }
+
+            transcriptCheckpointTask?.cancel()
+            transcriptCheckpointTask = nil
+            activeAutosaveSourceText = ""
+            activeAutosaveTranslatedText = ""
+            activeAutosaveBaseFileName = nil
+        }
+    }
     var floatingCaptionDisplayMode = FloatingCaptionDisplayMode.originalAndTranslation {
         didSet {
             if isTranscribeOnlyMode, floatingCaptionDisplayMode != .original {
@@ -1017,8 +1030,10 @@ final class TranslationSessionStore {
         flushOpenAITerminalTranscriptMailbox()
         flushPendingRecognizedCaption()
         flushPendingCaptionPresentation()
-        let hadTranscriptToSave = !visibleTranscript().trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hadTranscriptToSave = isTranscriptPersistenceEnabled
+            && (!visibleTranscript().trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || !activeAutosaveSourceText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            )
         let didSaveTranscript = flushPendingTranscriptSave()
         resetLiveSessionState(clearsVisibleLines: false)
         isPaused = false
@@ -2724,6 +2739,9 @@ final class TranslationSessionStore {
         if defaults.object(forKey: SettingsKey.isTranscriptLintEnabled) != nil {
             isTranscriptLintEnabled = defaults.bool(forKey: SettingsKey.isTranscriptLintEnabled)
         }
+        if defaults.object(forKey: SettingsKey.isTranscriptPersistenceEnabled) != nil {
+            isTranscriptPersistenceEnabled = defaults.bool(forKey: SettingsKey.isTranscriptPersistenceEnabled)
+        }
         if let modeID = defaults.string(forKey: SettingsKey.floatingCaptionDisplayMode),
            let mode = FloatingCaptionDisplayMode(rawValue: modeID) {
             if isTranscribeOnlyMode {
@@ -2838,6 +2856,7 @@ final class TranslationSessionStore {
         defaults.set(providerVoiceOutputEnabled, forKey: SettingsKey.providerVoiceOutputEnabled)
         defaults.set(translatedVoiceVolume, forKey: SettingsKey.translatedVoiceVolume)
         defaults.set(isTranscriptLintEnabled, forKey: SettingsKey.isTranscriptLintEnabled)
+        defaults.set(isTranscriptPersistenceEnabled, forKey: SettingsKey.isTranscriptPersistenceEnabled)
         defaults.set(
             (floatingCaptionDisplayModeBeforeTranscribeOnly ?? floatingCaptionDisplayMode).id,
             forKey: SettingsKey.floatingCaptionDisplayMode
@@ -2991,6 +3010,8 @@ final class TranslationSessionStore {
     }
 
     private func stageTranscriptForSave(_ sourceText: String, translatedText: String? = nil) {
+        guard isTranscriptPersistenceEnabled else { return }
+
         let sourceText = usesAppleCaptionRollover && lines.count > 1
             ? appleSavedSourceTranscriptText
             : sourceText.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -3009,7 +3030,7 @@ final class TranslationSessionStore {
     }
 
     private func scheduleTranscriptCheckpointIfNeeded() {
-        guard isRunning, transcriptCheckpointTask == nil else { return }
+        guard isTranscriptPersistenceEnabled, isRunning, transcriptCheckpointTask == nil else { return }
 
         let intervalMilliseconds = max(Int(transcriptCheckpointInterval * 1_000), 1)
         transcriptCheckpointTask = Task { @MainActor [weak self] in
@@ -3025,12 +3046,14 @@ final class TranslationSessionStore {
 
     @discardableResult
     private func checkpointPendingTranscriptSave() -> Bool {
-        persistPendingTranscriptSave(clearsStagedText: false, reloadsLibrary: false)
+        guard isTranscriptPersistenceEnabled else { return false }
+        return persistPendingTranscriptSave(clearsStagedText: false, reloadsLibrary: false)
     }
 
     @discardableResult
     private func flushPendingTranscriptSave() -> Bool {
-        persistPendingTranscriptSave(clearsStagedText: true, reloadsLibrary: true)
+        guard isTranscriptPersistenceEnabled else { return false }
+        return persistPendingTranscriptSave(clearsStagedText: true, reloadsLibrary: true)
     }
 
     @discardableResult
@@ -3038,6 +3061,8 @@ final class TranslationSessionStore {
         clearsStagedText: Bool,
         reloadsLibrary: Bool
     ) -> Bool {
+        guard isTranscriptPersistenceEnabled else { return false }
+
         let currentSourceText = usesAppleCaptionRollover && lines.count > 1
             ? appleSavedSourceTranscriptText
             : visibleTranscript().trimmingCharacters(in: .whitespacesAndNewlines)
