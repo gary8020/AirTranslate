@@ -147,7 +147,7 @@ struct TranslationQualityContext: Equatable, Sendable {
                   options: [.caseInsensitive],
                   range: searchStart..<text.endIndex
               ) {
-            if Self.hasTermBoundaries(range, source: entry.source, in: text) {
+            if Self.hasTermBoundaries(range, in: text) {
                 ranges.append(range)
             }
             searchStart = range.upperBound
@@ -158,22 +158,16 @@ struct TranslationQualityContext: Equatable, Sendable {
 
     private static func hasTermBoundaries(
         _ range: Range<String.Index>,
-        source: String,
         in text: String
     ) -> Bool {
-        let requiresLeadingBoundary = source.first?.isLetter == true
-            || source.first?.isNumber == true
-        let requiresTrailingBoundary = source.last?.isLetter == true
-            || source.last?.isNumber == true
-
-        if requiresLeadingBoundary, range.lowerBound > text.startIndex {
+        if range.lowerBound > text.startIndex {
             let previous = text[text.index(before: range.lowerBound)]
             if previous.isLetter || previous.isNumber {
                 return false
             }
         }
 
-        if requiresTrailingBoundary, range.upperBound < text.endIndex {
+        if range.upperBound < text.endIndex {
             let next = text[range.upperBound]
             if next.isLetter || next.isNumber {
                 return false

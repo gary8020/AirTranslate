@@ -5,7 +5,7 @@ set -euo pipefail
 # current macOS user. No API keys or saved application data are copied.
 
 REPOSITORY_URL="${AIRTRANSLATE_REPOSITORY_URL:-https://github.com/gary8020/AirTranslate.git}"
-SOURCE_BRANCH="${AIRTRANSLATE_SOURCE_BRANCH:-distribution/cross-mac-installer}"
+SOURCE_REVISION="${AIRTRANSLATE_SOURCE_REVISION:-${AIRTRANSLATE_SOURCE_BRANCH:-distribution/cross-mac-installer}}"
 SOURCE_DIR="${AIRTRANSLATE_SOURCE_DIR:-${HOME}/Library/Application Support/AirTranslate Custom Build/source}"
 INSTALL_DIR="${AIRTRANSLATE_INSTALL_DIR:-${HOME}/Applications}"
 BACKUP_DIR="${AIRTRANSLATE_BACKUP_DIR:-$(dirname "$SOURCE_DIR")/backups}"
@@ -19,6 +19,7 @@ MODE="${1:-install}"
 STAGING_DIR=""
 LOCK_HELD="false"
 SWAP_COMPLETE="false"
+INSTALL_COMPLETE="false"
 BACKUP_CREATED_THIS_RUN="false"
 
 fail() {
@@ -31,8 +32,16 @@ require_command() {
 }
 
 cleanup() {
-  if [[ "$BACKUP_CREATED_THIS_RUN" == "true" && "$SWAP_COMPLETE" != "true" && ! -e "$APP_TARGET" && -e "$BACKUP_PATH" ]]; then
-    mv "$BACKUP_PATH" "$APP_TARGET" || true
+  if [[ "$INSTALL_COMPLETE" != "true" ]]; then
+    if [[ "$SWAP_COMPLETE" == "true" && -e "$APP_TARGET" ]]; then
+      rm -rf -- "$APP_TARGET"
+    fi
+    if [[ "$BACKUP_CREATED_THIS_RUN" == "true" && -e "$BACKUP_PATH" ]]; then
+      if [[ -e "$APP_TARGET" ]]; then
+        rm -rf -- "$APP_TARGET"
+      fi
+      mv "$BACKUP_PATH" "$APP_TARGET" || true
+    fi
   fi
   if [[ -n "$STAGING_DIR" && -d "$STAGING_DIR" ]]; then
     rm -rf -- "$STAGING_DIR"
@@ -73,11 +82,22 @@ prepare_source() {
       fail "$SOURCE_DIR points to $current_repository_url instead of $REPOSITORY_URL"
     [[ -z "$(git -C "$SOURCE_DIR" status --short)" ]] ||
       fail "$SOURCE_DIR has local changes; move or commit them before updating"
-    git -C "$SOURCE_DIR" fetch --prune origin "$SOURCE_BRANCH"
-    git -C "$SOURCE_DIR" switch --detach "origin/$SOURCE_BRANCH"
+    git -C "$SOURCE_DIR" fetch --prune origin "$SOURCE_REVISION"
   else
     mkdir -p "$(dirname "$SOURCE_DIR")"
-    git clone --branch "$SOURCE_BRANCH" --single-branch "$REPOSITORY_URL" "$SOURCE_DIR"
+    git clone --no-checkout "$REPOSITORY_URL" "$SOURCE_DIR"
+    git -C "$SOURCE_DIR" fetch origin "$SOURCE_REVISION"
+  fi
+
+  git -C "$SOURCE_DIR" switch --detach FETCH_HEAD
+
+  if [[ "$SOURCE_REVISION" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    local expected_revision
+    local actual_revision
+    expected_revision="$(printf '%s' "$SOURCE_REVISION" | tr '[:upper:]' '[:lower:]')"
+    actual_revision="$(git -C "$SOURCE_DIR" rev-parse HEAD)"
+    [[ "$actual_revision" == "$expected_revision" ]] ||
+      fail "fetched $actual_revision instead of requested commit $expected_revision"
   fi
 }
 
@@ -165,6 +185,9 @@ echo "Source commit: $(git -C "$SOURCE_DIR" rev-parse HEAD)"
 
 if [[ "$MODE" == "install" ]]; then
   open_and_verify_app
+  INSTALL_COMPLETE="true"
   echo "AirTranslate opened. Approve Microphone and Speech Recognition if macOS asks."
   echo "After an update, macOS may ask again if this Mac does not have a persistent signing identity."
+else
+  INSTALL_COMPLETE="true"
 fi

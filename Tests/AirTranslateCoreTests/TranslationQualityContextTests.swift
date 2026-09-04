@@ -52,14 +52,15 @@ struct TranslationQualityContextTests {
             glossaryText: """
             AI = 人工知能
             人工知能 = AI技術
+            C++ = C-plus-plus
             """
         )
 
         let result = context.applyingTerminology(
-            to: "We said paid AI works. 人工知能 works too."
+            to: "We said paid AI works. 人工知能 and C++ work, but C++20 stays."
         )
 
-        #expect(result == "We said paid 人工知能 works. AI技術 works too.")
+        #expect(result == "We said paid 人工知能 works. AI技術 and C-plus-plus work, but C++20 stays.")
     }
 
     @Test
