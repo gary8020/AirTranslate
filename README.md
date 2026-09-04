@@ -52,6 +52,7 @@ The default workflow uses Apple frameworks. GPT Realtime, Gemini Live Translate,
 - **Steadier floating translations:** The overlay holds the previous translation until a new one is ready, so live captions no longer rewrite or flicker on every recognizer revision.
 - **Reserved caption height:** Floating captions keep a fixed block height and fade replacements in one piece, so the source line does not jump or re-center as text grows.
 - **Caption Stability and alignment:** Settings and the menu bar now offer Caption Stability (Responsive / Balanced / Steady) and Caption Alignment (Center / Left). Left-aligned captions stay anchored as the line grows.
+- **Presentation Quality mode:** One switch configures a translation-only, two-line audience overlay with steadier clause timing. Add talk context and a terminology glossary to protect names, brands, acronyms, and preferred Japanese wording.
 
 See the complete [AirTranslate 1.7.1 release notes](https://github.com/himomohi/AirTranslate/releases/tag/v1.7.1).
 
